@@ -160,10 +160,15 @@ pub fn value_editor<V: 'static>(
                 window,
                 cx,
             );
-            let label = if path.is_empty() {
+            let resolved_path = picker.read(cx).selected_path().to_string();
+            let label = if resolved_path.is_empty() {
                 "No image".to_string()
             } else {
-                path.rsplit('/').next().unwrap_or(&path).to_string()
+                resolved_path
+                    .rsplit(['/', '\\'])
+                    .next()
+                    .unwrap_or(&resolved_path)
+                    .to_string()
             };
             let (s, clear) = (set.clone(), set.clone());
             let clear_button = Button::new(SharedString::from(format!("{key}-clear")))

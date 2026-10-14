@@ -19,6 +19,7 @@ ui = { workspace = true }
 plugin_editor_api = { workspace = true }
 ui_common = { workspace = true }
 engine_fs = { workspace = true, features = ["editor"] }
+pulsar_reflection = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }

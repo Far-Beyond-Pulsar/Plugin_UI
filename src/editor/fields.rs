@@ -90,14 +90,15 @@ impl<V: 'static> Fields<V> {
         window: &mut Window,
         cx: &mut Context<V>,
     ) -> Entity<MeshAssetPicker> {
+        let current_path = resolve_image_path(&self.root, current);
         if !self.images.contains_key(&key) {
             let root = (!self.root.as_os_str().is_empty()).then(|| self.root.clone());
             let picker = cx.new(|cx| {
                 MeshAssetPicker::new(
-                    current.to_string(),
+                    current_path.clone(),
                     Vec::new(),
                     root,
-                    AssetQuery::texture_images(),
+                    AssetQuery::for_kind::<pulsar_reflection::ImageAssetKind>(),
                     window,
                     cx,
                 )
@@ -106,15 +107,19 @@ impl<V: 'static> Fields<V> {
                 &picker,
                 window,
                 move |this: &mut V, picker, _e: &AssetPickedEvent, _w, cx| {
-                    let chosen = picker.read(cx).selected_path().to_string();
+                    let picker = picker.read(cx);
+                    let chosen = picker
+                        .selected_or_create_asset_ref::<pulsar_reflection::ImageAssetKind>()
+                        .map(|reference| reference.as_str().to_owned())
+                        .unwrap_or_else(|| picker.selected_path().to_owned());
                     set(this, chosen, cx);
                 },
             ));
             self.images.insert(key.clone(), picker);
         }
         let picker = self.images[&key].clone();
-        if picker.read(cx).selected_path() != current {
-            picker.update(cx, |p, _| p.set_selected_path(current.to_string()));
+        if picker.read(cx).selected_path() != current_path {
+            picker.update(cx, |p, _| p.set_selected_path(current_path));
         }
         picker
     }
@@ -281,6 +286,23 @@ impl<V: 'static> Fields<V> {
         }
         picker
     }
+}
+
+fn resolve_image_path(root: &std::path::Path, value: &str) -> String {
+    let Some(reference) = pulsar_reflection::ImageRef::parse(value) else {
+        return value.to_owned();
+    };
+    engine_fs::open_project_file_index(root)
+        .ok()
+        .flatten()
+        .and_then(|index| {
+            index
+                .path_for_asset_id_kind("image", reference.as_str())
+                .ok()
+                .flatten()
+        })
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

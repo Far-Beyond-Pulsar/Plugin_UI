@@ -84,6 +84,16 @@ impl AssetPath {
     pub fn file_name(&self) -> &str {
         self.0.rsplit('/').next().unwrap_or(&self.0)
     }
+
+    /// Parse the GUID form written by the image picker. A non-GUID value is a
+    /// legacy project-relative path and remains valid for existing widgets.
+    pub fn image_ref(&self) -> Option<pulsar_reflection::ImageRef> {
+        pulsar_reflection::ImageRef::parse(&self.0)
+    }
+
+    pub fn legacy_path(&self) -> Option<&str> {
+        self.image_ref().is_none().then_some(self.0.as_str())
+    }
 }
 
 #[cfg(test)]

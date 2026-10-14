@@ -263,7 +263,19 @@ impl Painter<'_> {
     ) {
         let k = self.surface.scale;
         let image = (!path.is_empty()).then(|| {
-            let full = self.project_root.join(path);
+            let full = pulsar_reflection::ImageRef::parse(path)
+                .and_then(|reference| {
+                    engine_fs::open_project_file_index(self.project_root)
+                        .ok()
+                        .flatten()
+                        .and_then(|index| {
+                            index
+                                .path_for_asset_id_kind("image", reference.as_str())
+                                .ok()
+                                .flatten()
+                        })
+                })
+                .unwrap_or_else(|| self.project_root.join(path));
             window.use_asset::<ImgResourceLoader>(&Resource::Path(full.into()), cx)
         });
         match image {
