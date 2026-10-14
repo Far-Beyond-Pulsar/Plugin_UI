@@ -342,9 +342,12 @@ fn nested_widgets_parameters_and_details_render_for_every_kind(cx: &mut TestAppC
     cx.update(|_, cx| ctx.select(Vec::new(), cx));
     draw(cx);
 
-    // Moving the file keeps the reference good.
+    // Moving the file keeps the reference good. The move goes through the
+    // engine's filesystem, as the editor's does, which keeps the project file
+    // index the library reads current.
     std::fs::create_dir_all(dir.join("moved")).unwrap();
-    std::fs::rename(dir.join("Card.widget"), dir.join("moved/Renamed.widget")).unwrap();
+    engine_fs::virtual_fs::rename(&dir.join("Card.widget"), &dir.join("moved/Renamed.widget"))
+        .unwrap();
     ctx.lib.update(cx, |l, cx| l.refresh(cx));
     draw(cx);
     let library = ctx.lib.read_with(cx, |l, _| l.library());
