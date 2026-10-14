@@ -21,7 +21,9 @@ impl WidgetId {
 
     /// The id in `text`, if it is a UUID (any case, braces or not).
     pub fn parse(text: &str) -> Option<Self> {
-        uuid::Uuid::parse_str(text.trim().trim_matches(|c| c == '{' || c == '}')).ok().map(|u| Self(u.to_string()))
+        uuid::Uuid::parse_str(text.trim().trim_matches(|c| c == '{' || c == '}'))
+            .ok()
+            .map(|u| Self(u.to_string()))
     }
 
     pub fn as_str(&self) -> &str {
@@ -94,7 +96,10 @@ mod tests {
         assert_eq!(WidgetId::parse(id.as_str()), Some(id.clone()));
         let upper = id.as_str().to_uppercase();
         assert_eq!(WidgetId::parse(&upper), Some(id.clone()));
-        assert_eq!(WidgetId::parse(&format!("{{{}}}", id.as_str())), Some(id.clone()));
+        assert_eq!(
+            WidgetId::parse(&format!("{{{}}}", id.as_str())),
+            Some(id.clone())
+        );
         assert_eq!(WidgetId::parse("not an id"), None);
         assert_eq!(WidgetId::parse(""), None);
         assert_eq!(id.short().len(), 8);

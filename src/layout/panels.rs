@@ -20,7 +20,15 @@ pub fn canvas_slot_rect(child: &ResolvedNode, parent: Rect) -> Rect {
     let align = v.vec2("alignment");
     let auto = v.bool("auto_size");
 
-    let axis = |lo: f32, hi: f32, start: f32, size_of_parent: f32, off_a: f32, off_b: f32, align: f32, desired: f32| -> (f32, f32) {
+    let axis = |lo: f32,
+                hi: f32,
+                start: f32,
+                size_of_parent: f32,
+                off_a: f32,
+                off_b: f32,
+                align: f32,
+                desired: f32|
+     -> (f32, f32) {
         let a = start + lo * size_of_parent;
         let b = start + hi * size_of_parent;
         if (lo - hi).abs() < 1e-6 {
@@ -30,8 +38,26 @@ pub fn canvas_slot_rect(child: &ResolvedNode, parent: Rect) -> Rect {
             (a + off_a, (b - off_b) - (a + off_a))
         }
     };
-    let (x, w) = axis(amin.x, amax.x, parent.x, parent.w, o[0], o[2], align.x, child.desired.x);
-    let (y, h) = axis(amin.y, amax.y, parent.y, parent.h, o[1], o[3], align.y, child.desired.y);
+    let (x, w) = axis(
+        amin.x,
+        amax.x,
+        parent.x,
+        parent.w,
+        o[0],
+        o[2],
+        align.x,
+        child.desired.x,
+    );
+    let (y, h) = axis(
+        amin.y,
+        amax.y,
+        parent.y,
+        parent.h,
+        o[1],
+        o[3],
+        align.y,
+        child.desired.y,
+    );
     Rect::new(x, y, w.max(0.0), h.max(0.0))
 }
 
@@ -54,7 +80,10 @@ pub fn measure_canvas(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics)
                     ((hi - lo) * space - off_a - off_b).max(0.0)
                 }
             };
-            Vec2::new(axis(amin.x, amax.x, avail.x, o[0], o[2]), axis(amin.y, amax.y, avail.y, o[1], o[3]))
+            Vec2::new(
+                axis(amin.x, amax.x, avail.x, o[0], o[2]),
+                axis(amin.y, amax.y, avail.y, o[1], o[3]),
+            )
         };
         measure(child, offered, m);
         let v = child.slot_view();
@@ -70,8 +99,20 @@ pub fn measure_canvas(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics)
                 (off_a - align * s).max(0.0) + s
             }
         };
-        size.x = size.x.max(extent(amin.x != amax.x, o[0], o[2], child.desired.x, align.x));
-        size.y = size.y.max(extent(amin.y != amax.y, o[1], o[3], child.desired.y, align.y));
+        size.x = size.x.max(extent(
+            amin.x != amax.x,
+            o[0],
+            o[2],
+            child.desired.x,
+            align.x,
+        ));
+        size.y = size.y.max(extent(
+            amin.y != amax.y,
+            o[1],
+            o[3],
+            child.desired.y,
+            align.y,
+        ));
     }
     size
 }
@@ -102,7 +143,12 @@ fn join(main: f32, cross: f32, horizontal: bool) -> Vec2 {
     }
 }
 
-pub fn measure_box(node: &mut ResolvedNode, avail: Vec2, horizontal: bool, m: &dyn TextMetrics) -> Vec2 {
+pub fn measure_box(
+    node: &mut ResolvedNode,
+    avail: Vec2,
+    horizontal: bool,
+    m: &dyn TextMetrics,
+) -> Vec2 {
     let (mut main, mut cross) = (0.0f32, 0.0f32);
     for child in node.children.iter_mut().filter(|c| !is_collapsed(c)) {
         let p = pad(child);
@@ -112,7 +158,13 @@ pub fn measure_box(node: &mut ResolvedNode, avail: Vec2, horizontal: bool, m: &d
             Vec2::new(avail.x - p.horizontal(), INF)
         };
         measure(child, child_avail, m);
-        let (cm, cc) = along(Vec2::new(child.desired.x + p.horizontal(), child.desired.y + p.vertical()), horizontal);
+        let (cm, cc) = along(
+            Vec2::new(
+                child.desired.x + p.horizontal(),
+                child.desired.y + p.vertical(),
+            ),
+            horizontal,
+        );
         main += cm;
         cross = cross.max(cc);
     }
@@ -132,7 +184,13 @@ fn arrange_run(node: &mut ResolvedNode, horizontal: bool, scroll: f32) {
     let mut weight_total = 0.0;
     for child in node.children.iter().filter(|c| !is_collapsed(c)) {
         let p = pad(child);
-        let (cm, _) = along(Vec2::new(child.desired.x + p.horizontal(), child.desired.y + p.vertical()), horizontal);
+        let (cm, _) = along(
+            Vec2::new(
+                child.desired.x + p.horizontal(),
+                child.desired.y + p.vertical(),
+            ),
+            horizontal,
+        );
         if child.slot_view().choice("size_rule") == "fill" && scroll == 0.0 {
             weight_total += child.slot_view().f32("fill_weight").max(0.0);
         } else {
@@ -144,7 +202,13 @@ fn arrange_run(node: &mut ResolvedNode, horizontal: bool, scroll: f32) {
     let mut cursor = if horizontal { rect.x } else { rect.y } - scroll;
     for child in node.children.iter_mut().filter(|c| !is_collapsed(c)) {
         let p = pad(child);
-        let (cm, _) = along(Vec2::new(child.desired.x + p.horizontal(), child.desired.y + p.vertical()), horizontal);
+        let (cm, _) = along(
+            Vec2::new(
+                child.desired.x + p.horizontal(),
+                child.desired.y + p.vertical(),
+            ),
+            horizontal,
+        );
         let allotted = if child.slot_view().choice("size_rule") == "fill" && scroll == 0.0 {
             let w = child.slot_view().f32("fill_weight").max(0.0);
             if weight_total > 0.0 {
@@ -173,12 +237,30 @@ fn arrange_run(node: &mut ResolvedNode, horizontal: bool, scroll: f32) {
 pub fn measure_scroll(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) -> Vec2 {
     let horizontal = node.view().choice("orientation") == "horizontal";
     // The scrolling axis has all the room it needs.
-    let unbounded = if horizontal { Vec2::new(INF, avail.y) } else { Vec2::new(avail.x, INF) };
+    let unbounded = if horizontal {
+        Vec2::new(INF, avail.y)
+    } else {
+        Vec2::new(avail.x, INF)
+    };
     let content = measure_box(node, unbounded, horizontal, m);
     if horizontal {
-        Vec2::new(if avail.x.is_finite() { content.x.min(avail.x) } else { content.x }, content.y)
+        Vec2::new(
+            if avail.x.is_finite() {
+                content.x.min(avail.x)
+            } else {
+                content.x
+            },
+            content.y,
+        )
     } else {
-        Vec2::new(content.x, if avail.y.is_finite() { content.y.min(avail.y) } else { content.y })
+        Vec2::new(
+            content.x,
+            if avail.y.is_finite() {
+                content.y.min(avail.y)
+            } else {
+                content.y
+            },
+        )
     }
 }
 
@@ -195,7 +277,11 @@ pub fn scroll_extent(node: &ResolvedNode) -> f32 {
     let mut end = if horizontal { node.rect.x } else { node.rect.y };
     for child in node.children.iter().filter(|c| !is_collapsed(c)) {
         let p = pad(child);
-        let far = if horizontal { child.rect.right() + p.right } else { child.rect.bottom() + p.bottom };
+        let far = if horizontal {
+            child.rect.right() + p.right
+        } else {
+            child.rect.bottom() + p.bottom
+        };
         end = end.max(far);
     }
     let start = if horizontal { node.rect.x } else { node.rect.y };
@@ -222,9 +308,14 @@ pub fn parse_tracks(spec: &str) -> Vec<Track> {
             if lower == "auto" {
                 Track::Auto
             } else if let Some(px) = lower.strip_suffix("px") {
-                px.trim().parse().map_or(Track::Weight(1.0), |v: f32| Track::Px(v.max(0.0)))
+                px.trim()
+                    .parse()
+                    .map_or(Track::Weight(1.0), |v: f32| Track::Px(v.max(0.0)))
             } else {
-                lower.trim_end_matches('*').parse().map_or(Track::Weight(1.0), |v: f32| Track::Weight(v.max(0.0)))
+                lower
+                    .trim_end_matches('*')
+                    .parse()
+                    .map_or(Track::Weight(1.0), |v: f32| Track::Weight(v.max(0.0)))
             }
         })
         .collect();
@@ -262,22 +353,46 @@ fn cells(node: &ResolvedNode) -> Vec<Cell> {
 }
 
 fn track_at(tracks: &[Track], i: usize) -> Track {
-    *tracks.get(i).unwrap_or_else(|| tracks.last().expect("parse_tracks never returns an empty list"))
+    *tracks.get(i).unwrap_or_else(|| {
+        tracks
+            .last()
+            .expect("parse_tracks never returns an empty list")
+    })
 }
 
 /// Sizes of `count` tracks: content size for `auto` (and, while measuring,
 /// weighted) tracks, pixels as given, and the rest of `space` shared by weight.
-fn resolve_tracks(tracks: &[Track], count: usize, content: &[f32], space: Option<f32>, gap: f32) -> Vec<f32> {
+fn resolve_tracks(
+    tracks: &[Track],
+    count: usize,
+    content: &[f32],
+    space: Option<f32>,
+    gap: f32,
+) -> Vec<f32> {
     let mut sizes: Vec<f32> = (0..count)
         .map(|i| match track_at(tracks, i) {
             Track::Px(px) => px,
             Track::Auto => content[i],
-            Track::Weight(_) => if space.is_some() { 0.0 } else { content[i] },
+            Track::Weight(_) => {
+                if space.is_some() {
+                    0.0
+                } else {
+                    content[i]
+                }
+            }
         })
         .collect();
     if let Some(space) = space {
         let used: f32 = sizes.iter().sum::<f32>() + gap * count.saturating_sub(1) as f32;
-        let weights: f32 = (0..count).map(|i| if let Track::Weight(w) = track_at(tracks, i) { w } else { 0.0 }).sum();
+        let weights: f32 = (0..count)
+            .map(|i| {
+                if let Track::Weight(w) = track_at(tracks, i) {
+                    w
+                } else {
+                    0.0
+                }
+            })
+            .sum();
         let free = (space - used).max(0.0);
         if weights > 0.0 {
             for (i, size) in sizes.iter_mut().enumerate() {
@@ -291,12 +406,26 @@ fn resolve_tracks(tracks: &[Track], count: usize, content: &[f32], space: Option
 }
 
 fn grid_shape(node: &ResolvedNode, cells: &[Cell]) -> (usize, usize) {
-    let cols = cells.iter().map(|c| c.col + c.col_span).max().unwrap_or(0).max(parse_tracks(&node.view().text("column_sizes")).len().min(64));
+    let cols = cells
+        .iter()
+        .map(|c| c.col + c.col_span)
+        .max()
+        .unwrap_or(0)
+        .max(
+            parse_tracks(&node.view().text("column_sizes"))
+                .len()
+                .min(64),
+        );
     let rows = cells.iter().map(|c| c.row + c.row_span).max().unwrap_or(0);
     (cols.min(256), rows.min(256))
 }
 
-fn content_sizes(node: &ResolvedNode, cells: &[Cell], cols: usize, rows: usize) -> (Vec<f32>, Vec<f32>) {
+fn content_sizes(
+    node: &ResolvedNode,
+    cells: &[Cell],
+    cols: usize,
+    rows: usize,
+) -> (Vec<f32>, Vec<f32>) {
     let mut col_w = vec![0.0f32; cols];
     let mut row_h = vec![0.0f32; rows];
     for cell in cells {
@@ -316,7 +445,11 @@ fn content_sizes(node: &ResolvedNode, cells: &[Cell], cols: usize, rows: usize) 
 pub fn measure_grid(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) -> Vec2 {
     for child in node.children.iter_mut().filter(|c| !is_collapsed(c)) {
         let p = pad(child);
-        measure(child, Vec2::new(avail.x - p.horizontal(), avail.y - p.vertical()), m);
+        measure(
+            child,
+            Vec2::new(avail.x - p.horizontal(), avail.y - p.vertical()),
+            m,
+        );
     }
     let cs = cells(node);
     let (cols, rows) = grid_shape(node, &cs);
@@ -384,13 +517,25 @@ struct Placement {
 /// goes (relative to the box's corner) and the total size.
 fn flow(node: &ResolvedNode, limit: f32, horizontal: bool, gap: Vec2) -> (Vec<Placement>, Vec2) {
     let mut placements = Vec::new();
-    let (gap_main, gap_cross) = if horizontal { (gap.x, gap.y) } else { (gap.y, gap.x) };
+    let (gap_main, gap_cross) = if horizontal {
+        (gap.x, gap.y)
+    } else {
+        (gap.y, gap.x)
+    };
     let (mut main, mut cross, mut line) = (0.0f32, 0.0f32, 0.0f32);
     let mut longest = 0.0f32;
     let mut first_in_line = true;
-    for (i, child) in node.children.iter().enumerate().filter(|(_, c)| !is_collapsed(c)) {
+    for (i, child) in node
+        .children
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| !is_collapsed(c))
+    {
         let p = pad(child);
-        let size = Vec2::new(child.desired.x + p.horizontal(), child.desired.y + p.vertical());
+        let size = Vec2::new(
+            child.desired.x + p.horizontal(),
+            child.desired.y + p.vertical(),
+        );
         let (item_main, item_cross) = along(size, horizontal);
         if !first_in_line && main + gap_main + item_main > limit {
             cross += line + gap_cross;
@@ -402,7 +547,11 @@ fn flow(node: &ResolvedNode, limit: f32, horizontal: bool, gap: Vec2) -> (Vec<Pl
             main += gap_main;
         }
         let pos = join(main, cross, horizontal);
-        placements.push(Placement { child: i, pos, size });
+        placements.push(Placement {
+            child: i,
+            pos,
+            size,
+        });
         main += item_main;
         line = line.max(item_cross);
         longest = longest.max(main);
@@ -416,20 +565,37 @@ pub fn measure_wrap(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) -
     for child in node.children.iter_mut().filter(|c| !is_collapsed(c)) {
         measure(child, Vec2::new(INF, INF), m);
     }
-    let limit = node.view().opt_f32("wrap_size").unwrap_or(if horizontal { avail.x } else { avail.y });
+    let limit =
+        node.view()
+            .opt_f32("wrap_size")
+            .unwrap_or(if horizontal { avail.x } else { avail.y });
     let gap = node.view().vec2("gap");
-    flow(node, if limit.is_finite() { limit } else { INF }, horizontal, gap).1
+    flow(
+        node,
+        if limit.is_finite() { limit } else { INF },
+        horizontal,
+        gap,
+    )
+    .1
 }
 
 pub fn arrange_wrap(node: &mut ResolvedNode) {
     let horizontal = node.view().choice("orientation") != "vertical";
     let rect = node.rect;
-    let limit = node.view().opt_f32("wrap_size").unwrap_or(if horizontal { rect.w } else { rect.h });
+    let limit =
+        node.view()
+            .opt_f32("wrap_size")
+            .unwrap_or(if horizontal { rect.w } else { rect.h });
     let gap = node.view().vec2("gap");
     let (placements, _) = flow(node, limit, horizontal, gap);
     for placement in placements {
         let child = &mut node.children[placement.child];
-        let area = Rect::new(rect.x + placement.pos.x, rect.y + placement.pos.y, placement.size.x, placement.size.y);
+        let area = Rect::new(
+            rect.x + placement.pos.x,
+            rect.y + placement.pos.y,
+            placement.size.x,
+            placement.size.y,
+        );
         let placed = super::place_in(area, child);
         arrange(child, placed, Affine::IDENTITY);
     }
@@ -441,7 +607,15 @@ mod tests {
 
     #[test]
     fn track_specs_parse_leniently() {
-        assert_eq!(parse_tracks("1, auto, 120px, 2*"), vec![Track::Weight(1.0), Track::Auto, Track::Px(120.0), Track::Weight(2.0)]);
+        assert_eq!(
+            parse_tracks("1, auto, 120px, 2*"),
+            vec![
+                Track::Weight(1.0),
+                Track::Auto,
+                Track::Px(120.0),
+                Track::Weight(2.0)
+            ]
+        );
         assert_eq!(parse_tracks(""), vec![Track::Auto]);
         assert_eq!(parse_tracks("wat"), vec![Track::Weight(1.0)]);
         assert_eq!(parse_tracks("-5px"), vec![Track::Px(0.0)]);
@@ -464,12 +638,25 @@ mod tests {
 #[cfg(test)]
 pub fn offsets_for_rect(child: &ResolvedNode, parent: Rect, wanted: Rect) -> [f32; 4] {
     let v = child.slot_view();
-    offsets_for(v.vec2("anchor_min"), v.vec2("anchor_max"), v.vec2("alignment"), parent, wanted)
+    offsets_for(
+        v.vec2("anchor_min"),
+        v.vec2("anchor_max"),
+        v.vec2("alignment"),
+        parent,
+        wanted,
+    )
 }
 
 /// [`offsets_for_rect`] for anchors and alignment given directly.
 pub fn offsets_for(amin: Vec2, amax: Vec2, align: Vec2, parent: Rect, wanted: Rect) -> [f32; 4] {
-    let axis = |lo: f32, hi: f32, start: f32, space: f32, pos: f32, extent: f32, align: f32| -> (f32, f32) {
+    let axis = |lo: f32,
+                hi: f32,
+                start: f32,
+                space: f32,
+                pos: f32,
+                extent: f32,
+                align: f32|
+     -> (f32, f32) {
         let a = start + lo * space;
         let b = start + hi * space;
         if (lo - hi).abs() < 1e-6 {
@@ -478,8 +665,12 @@ pub fn offsets_for(amin: Vec2, amax: Vec2, align: Vec2, parent: Rect, wanted: Re
             (pos - a, b - (pos + extent))
         }
     };
-    let (x0, x1) = axis(amin.x, amax.x, parent.x, parent.w, wanted.x, wanted.w, align.x);
-    let (y0, y1) = axis(amin.y, amax.y, parent.y, parent.h, wanted.y, wanted.h, align.y);
+    let (x0, x1) = axis(
+        amin.x, amax.x, parent.x, parent.w, wanted.x, wanted.w, align.x,
+    );
+    let (y0, y1) = axis(
+        amin.y, amax.y, parent.y, parent.h, wanted.y, wanted.h, align.y,
+    );
     [x0, y0, x1, y1]
 }
 
@@ -507,7 +698,12 @@ mod canvas_math_tests {
     use crate::resolve::resolve;
     use serde_json::json;
 
-    fn child_with(anchor_min: [f32; 2], anchor_max: [f32; 2], offsets: [f32; 4], alignment: [f32; 2]) -> (WidgetAsset, Vec2) {
+    fn child_with(
+        anchor_min: [f32; 2],
+        anchor_max: [f32; 2],
+        offsets: [f32; 4],
+        alignment: [f32; 2],
+    ) -> (WidgetAsset, Vec2) {
         let mut w = WidgetAsset::new();
         let root = w.root.id;
         let mut n = w.new_node(Kind::Spacer);
@@ -515,10 +711,22 @@ mod canvas_math_tests {
         let id = n.id;
         w.add(root, None, n).unwrap();
         let node = w.node_mut(id).unwrap();
-        node.set_slot(crate::model::SlotKind::Canvas, "anchor_min", json!(anchor_min));
-        node.set_slot(crate::model::SlotKind::Canvas, "anchor_max", json!(anchor_max));
+        node.set_slot(
+            crate::model::SlotKind::Canvas,
+            "anchor_min",
+            json!(anchor_min),
+        );
+        node.set_slot(
+            crate::model::SlotKind::Canvas,
+            "anchor_max",
+            json!(anchor_max),
+        );
         node.set_slot(crate::model::SlotKind::Canvas, "offsets", json!(offsets));
-        node.set_slot(crate::model::SlotKind::Canvas, "alignment", json!(alignment));
+        node.set_slot(
+            crate::model::SlotKind::Canvas,
+            "alignment",
+            json!(alignment),
+        );
         (w, Vec2::new(800.0, 600.0))
     }
 
@@ -532,9 +740,19 @@ mod canvas_math_tests {
     #[test]
     fn offsets_for_a_rect_reproduce_that_rect_for_any_anchoring() {
         let cases = [
-            ([0.0, 0.0], [0.0, 0.0], [10.0, 20.0, 100.0, 50.0], [0.0, 0.0]),
+            (
+                [0.0, 0.0],
+                [0.0, 0.0],
+                [10.0, 20.0, 100.0, 50.0],
+                [0.0, 0.0],
+            ),
             ([0.5, 0.5], [0.5, 0.5], [0.0, 0.0, 200.0, 100.0], [0.5, 0.5]),
-            ([1.0, 0.0], [1.0, 0.0], [-120.0, 8.0, 100.0, 40.0], [0.0, 0.0]),
+            (
+                [1.0, 0.0],
+                [1.0, 0.0],
+                [-120.0, 8.0, 100.0, 40.0],
+                [0.0, 0.0],
+            ),
             ([0.0, 0.0], [1.0, 1.0], [10.0, 20.0, 30.0, 40.0], [0.0, 0.0]),
             ([0.0, 0.5], [1.0, 0.5], [16.0, 0.0, 16.0, 60.0], [0.0, 0.5]),
         ];
@@ -546,20 +764,39 @@ mod canvas_math_tests {
             let parent = Rect::new(0.0, 0.0, size.x, size.y);
             let new_offsets = offsets_for_rect(&node, parent, wanted);
             let id = w.root.children[0].id;
-            w.node_mut(id).unwrap().set_slot(crate::model::SlotKind::Canvas, "offsets", json!(new_offsets));
+            w.node_mut(id).unwrap().set_slot(
+                crate::model::SlotKind::Canvas,
+                "offsets",
+                json!(new_offsets),
+            );
             let (after, _) = rect_of(&w, size);
             let close = |a: f32, b: f32| (a - b).abs() < 0.01;
-            assert!(close(after.x, wanted.x) && close(after.y, wanted.y) && close(after.w, wanted.w) && close(after.h, wanted.h), "{amin:?}-{amax:?}: {after:?} != {wanted:?}");
+            assert!(
+                close(after.x, wanted.x)
+                    && close(after.y, wanted.y)
+                    && close(after.w, wanted.w)
+                    && close(after.h, wanted.h),
+                "{amin:?}-{amax:?}: {after:?} != {wanted:?}"
+            );
         }
     }
 
     #[test]
     fn translating_offsets_moves_without_resizing() {
-        let (mut w, size) = child_with([0.0, 0.0], [1.0, 0.0], [10.0, 20.0, 30.0, 40.0], [0.0, 0.0]);
+        let (mut w, size) =
+            child_with([0.0, 0.0], [1.0, 0.0], [10.0, 20.0, 30.0, 40.0], [0.0, 0.0]);
         let (before, _) = rect_of(&w, size);
-        let moved = translate_offsets([10.0, 20.0, 30.0, 40.0], Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), 5.0, 7.0);
+        let moved = translate_offsets(
+            [10.0, 20.0, 30.0, 40.0],
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            5.0,
+            7.0,
+        );
         let id = w.root.children[0].id;
-        w.node_mut(id).unwrap().set_slot(crate::model::SlotKind::Canvas, "offsets", json!(moved));
+        w.node_mut(id)
+            .unwrap()
+            .set_slot(crate::model::SlotKind::Canvas, "offsets", json!(moved));
         let (after, _) = rect_of(&w, size);
         assert!((after.x - before.x - 5.0).abs() < 0.01 && (after.y - before.y - 7.0).abs() < 0.01);
         assert!((after.w - before.w).abs() < 0.01 && (after.h - before.h).abs() < 0.01);

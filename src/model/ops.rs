@@ -85,7 +85,9 @@ impl WidgetAsset {
 
     /// The slot kind `id`'s own slot properties belong to.
     pub fn slot_kind_of(&self, id: NodeId) -> SlotKind {
-        self.parent_of(id).and_then(|p| self.node(p)).map_or(SlotKind::None, |p| p.info().slot)
+        self.parent_of(id)
+            .and_then(|p| self.node(p))
+            .map_or(SlotKind::None, |p| p.info().slot)
     }
 
     pub fn all_names(&self) -> HashSet<String> {
@@ -101,13 +103,20 @@ impl WidgetAsset {
         let names = self.all_names();
         let base = base.trim();
         let stem = match base.rsplit_once('_') {
-            Some((stem, n)) if !stem.is_empty() && n.chars().all(|c| c.is_ascii_digit()) && !n.is_empty() => stem,
+            Some((stem, n))
+                if !stem.is_empty() && n.chars().all(|c| c.is_ascii_digit()) && !n.is_empty() =>
+            {
+                stem
+            }
             _ => base,
         };
         if !names.contains(base) {
             return base.to_string();
         }
-        (1..).map(|n| format!("{stem}_{n}")).find(|c| !names.contains(c)).expect("an unused name exists")
+        (1..)
+            .map(|n| format!("{stem}_{n}"))
+            .find(|c| !names.contains(c))
+            .expect("an unused name exists")
     }
 
     // ── Creating ───────────────────────────────────────────────────────────
@@ -124,7 +133,11 @@ impl WidgetAsset {
         let name = self.unique_name(&sanitize_name(name_hint, "Widget"));
         let id = self.alloc_id();
         let mut node = Node::new(id, name, Kind::Instance);
-        node.instance = Some(Instance { widget, name_hint: name_hint.to_string(), overrides: Default::default() });
+        node.instance = Some(Instance {
+            widget,
+            name_hint: name_hint.to_string(),
+            overrides: Default::default(),
+        });
         node
     }
 
@@ -159,7 +172,12 @@ impl WidgetAsset {
     }
 
     /// Put `node` under `parent` at `index` (the end when `None`).
-    pub fn add(&mut self, parent: NodeId, index: Option<usize>, mut node: Node) -> Result<NodeId, OpError> {
+    pub fn add(
+        &mut self,
+        parent: NodeId,
+        index: Option<usize>,
+        mut node: Node,
+    ) -> Result<NodeId, OpError> {
         self.can_accept(parent)?;
         let (slot, takes_slots) = {
             let p = self.node(parent).ok_or(OpError::NotFound)?;
@@ -183,7 +201,11 @@ impl WidgetAsset {
         }
         let parent = self.parent_of(id).ok_or(OpError::NotFound)?;
         let p = self.node_mut(parent).ok_or(OpError::NotFound)?;
-        let at = p.children.iter().position(|c| c.id == id).ok_or(OpError::NotFound)?;
+        let at = p
+            .children
+            .iter()
+            .position(|c| c.id == id)
+            .ok_or(OpError::NotFound)?;
         let removed = p.children.remove(at);
         let mut gone = HashSet::new();
         removed.walk(&mut |n| {
@@ -196,7 +218,12 @@ impl WidgetAsset {
     }
 
     /// Move `id` under `parent` at `index`.
-    pub fn move_node(&mut self, id: NodeId, parent: NodeId, index: Option<usize>) -> Result<(), OpError> {
+    pub fn move_node(
+        &mut self,
+        id: NodeId,
+        parent: NodeId,
+        index: Option<usize>,
+    ) -> Result<(), OpError> {
         if id == self.root.id {
             return Err(OpError::IsRoot);
         }
@@ -216,7 +243,8 @@ impl WidgetAsset {
         let node = p.children.remove(old_index);
 
         let new_slot = self.node(parent).ok_or(OpError::NotFound)?.info().slot;
-        let takes_slots = self.node(parent).ok_or(OpError::NotFound)?.info().children == Children::Slots;
+        let takes_slots =
+            self.node(parent).ok_or(OpError::NotFound)?.info().children == Children::Slots;
         let mut node = node;
         retain_compatible_slot(&mut node, new_slot);
         if !takes_slots {
@@ -251,7 +279,9 @@ impl WidgetAsset {
         let first = *ids.first().ok_or(OpError::NotFound)?;
         let container_info = kind.info();
         match container_info.children {
-            Children::None | Children::Slots => return Err(OpError::NoChildren(container_info.label)),
+            Children::None | Children::Slots => {
+                return Err(OpError::NoChildren(container_info.label))
+            }
             Children::One if ids.len() > 1 => return Err(OpError::Full(container_info.label)),
             _ => {}
         }
@@ -259,7 +289,11 @@ impl WidgetAsset {
         if is_root && ids.len() > 1 {
             return Err(OpError::NotSiblings);
         }
-        let parent = if is_root { None } else { Some(self.parent_of(first).ok_or(OpError::NotFound)?) };
+        let parent = if is_root {
+            None
+        } else {
+            Some(self.parent_of(first).ok_or(OpError::NotFound)?)
+        };
         if let Some(parent) = parent {
             if ids.iter().any(|&i| self.parent_of(i) != Some(parent)) {
                 return Err(OpError::NotSiblings);
@@ -282,7 +316,13 @@ impl WidgetAsset {
         // Keep the siblings' order, and put the container where the first was.
         let mut order: Vec<(usize, NodeId)> = ids
             .iter()
-            .filter_map(|&i| parent_node.children.iter().position(|c| c.id == i).map(|p| (p, i)))
+            .filter_map(|&i| {
+                parent_node
+                    .children
+                    .iter()
+                    .position(|c| c.id == i)
+                    .map(|p| (p, i))
+            })
             .collect();
         order.sort_unstable();
         let at = order[0].0;
@@ -342,7 +382,11 @@ impl WidgetAsset {
     fn remove_keeping_links(&mut self, id: NodeId) -> Result<Node, OpError> {
         let parent = self.parent_of(id).ok_or(OpError::NotFound)?;
         let p = self.node_mut(parent).ok_or(OpError::NotFound)?;
-        let at = p.children.iter().position(|c| c.id == id).ok_or(OpError::NotFound)?;
+        let at = p
+            .children
+            .iter()
+            .position(|c| c.id == id)
+            .ok_or(OpError::NotFound)?;
         Ok(p.children.remove(at))
     }
 
@@ -383,9 +427,19 @@ impl WidgetAsset {
 
     /// Make `param` drive `prop` of `node`. The property must exist and have
     /// the parameter's type.
-    pub fn link_parameter(&mut self, param: ParamId, node: NodeId, prop: &str) -> Result<(), OpError> {
+    pub fn link_parameter(
+        &mut self,
+        param: ParamId,
+        node: NodeId,
+        prop: &str,
+    ) -> Result<(), OpError> {
         let class = self.parameter(param).ok_or(OpError::NotFound)?.class;
-        let def = self.node(node).ok_or(OpError::NotFound)?.info().def(prop).ok_or(OpError::BadTarget)?;
+        let def = self
+            .node(node)
+            .ok_or(OpError::NotFound)?
+            .info()
+            .def(prop)
+            .ok_or(OpError::BadTarget)?;
         if def.ty.class() != class {
             return Err(OpError::BadTarget);
         }
@@ -393,8 +447,15 @@ impl WidgetAsset {
         for p in &mut self.parameters {
             p.targets.retain(|t| !(t.node == node && t.prop == prop));
         }
-        let p = self.parameters.iter_mut().find(|p| p.id == param).ok_or(OpError::NotFound)?;
-        p.targets.push(Target { node, prop: prop.to_string() });
+        let p = self
+            .parameters
+            .iter_mut()
+            .find(|p| p.id == param)
+            .ok_or(OpError::NotFound)?;
+        p.targets.push(Target {
+            node,
+            prop: prop.to_string(),
+        });
         Ok(())
     }
 
@@ -406,7 +467,9 @@ impl WidgetAsset {
 
     /// The parameter driving `prop` of `node`, if any.
     pub fn driver_of(&self, node: NodeId, prop: &str) -> Option<&Parameter> {
-        self.parameters.iter().find(|p| p.targets.iter().any(|t| t.node == node && t.prop == prop))
+        self.parameters
+            .iter()
+            .find(|p| p.targets.iter().any(|t| t.node == node && t.prop == prop))
     }
 
     /// Set a parameter's default from a property's current value, so
@@ -422,7 +485,9 @@ impl WidgetAsset {
 
 /// Drop slot properties that don't exist in, or are invalid for, `slot`.
 pub fn retain_compatible_slot(node: &mut Node, slot: SlotKind) {
-    node.slot.0.retain(|key, value| slot.def(key).is_some_and(|d| d.ty.coerce(value).is_some()));
+    node.slot
+        .0
+        .retain(|key, value| slot.def(key).is_some_and(|d| d.ty.coerce(value).is_some()));
 }
 
 /// A name usable for a node or parameter: letters, digits and underscores.
@@ -430,7 +495,13 @@ pub fn sanitize_name(text: &str, fallback: &str) -> String {
     let cleaned: String = text
         .trim()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .trim_matches('_')
         .to_string();
@@ -447,10 +518,17 @@ fn next_free(base: &str, taken: &HashSet<String>) -> String {
         return base.to_string();
     }
     let stem = match base.rsplit_once('_') {
-        Some((stem, n)) if !stem.is_empty() && !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()) => stem,
+        Some((stem, n))
+            if !stem.is_empty() && !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()) =>
+        {
+            stem
+        }
         _ => base,
     };
-    (1..).map(|n| format!("{stem}_{n}")).find(|c| !taken.contains(c)).expect("an unused name exists")
+    (1..)
+        .map(|n| format!("{stem}_{n}"))
+        .find(|c| !taken.contains(c))
+        .expect("an unused name exists")
 }
 
 #[cfg(test)]
@@ -493,7 +571,10 @@ mod tests {
         let extra = w.new_node(Kind::Text);
         w.add(button, None, extra).unwrap();
         let second = w.new_node(Kind::Text);
-        assert_eq!(w.add(button, None, second.clone()), Err(OpError::Full("Button")));
+        assert_eq!(
+            w.add(button, None, second.clone()),
+            Err(OpError::Full("Button"))
+        );
         assert_eq!(w.add(a, None, second), Err(OpError::NoChildren("Text")));
     }
 
@@ -515,11 +596,23 @@ mod tests {
     fn moving_reorders_and_reparents_and_refuses_cycles() {
         let (mut w, vbox, a, b, button) = sample();
         w.move_node(b, vbox, Some(0)).unwrap();
-        let order: Vec<_> = w.node(vbox).unwrap().children.iter().map(|c| c.id).collect();
+        let order: Vec<_> = w
+            .node(vbox)
+            .unwrap()
+            .children
+            .iter()
+            .map(|c| c.id)
+            .collect();
         assert_eq!(order, [b, a, button]);
         // Moving to the end after itself accounts for its own removal.
         w.move_node(b, vbox, Some(3)).unwrap();
-        let order: Vec<_> = w.node(vbox).unwrap().children.iter().map(|c| c.id).collect();
+        let order: Vec<_> = w
+            .node(vbox)
+            .unwrap()
+            .children
+            .iter()
+            .map(|c| c.id)
+            .collect();
         assert_eq!(order, [a, button, b]);
         // Into a button, then it can't be taken again.
         w.move_node(a, button, None).unwrap();
@@ -533,12 +626,22 @@ mod tests {
     fn moving_between_parents_drops_slot_properties_that_no_longer_apply() {
         let (mut w, vbox, a, _, _) = sample();
         let canvas = w.root.id;
-        w.node_mut(a).unwrap().set_slot(SlotKind::Box, "padding", json!([4.0, 4.0, 4.0, 4.0]));
-        w.node_mut(a).unwrap().set_slot(SlotKind::Box, "fill_weight", json!(3.0));
+        w.node_mut(a)
+            .unwrap()
+            .set_slot(SlotKind::Box, "padding", json!([4.0, 4.0, 4.0, 4.0]));
+        w.node_mut(a)
+            .unwrap()
+            .set_slot(SlotKind::Box, "fill_weight", json!(3.0));
         w.move_node(a, canvas, None).unwrap();
         let slot = &w.node(a).unwrap().slot;
-        assert!(slot.get("fill_weight").is_none(), "box-only property is gone");
-        assert!(slot.get("padding").is_none(), "canvas slots have no padding");
+        assert!(
+            slot.get("fill_weight").is_none(),
+            "box-only property is gone"
+        );
+        assert!(
+            slot.get("padding").is_none(),
+            "canvas slots have no padding"
+        );
         w.move_node(a, vbox, None).unwrap();
         assert!(w.node(a).unwrap().slot.is_empty());
     }
@@ -555,9 +658,11 @@ mod tests {
         // A subtree duplicates with every id renewed.
         let vcopy = w.duplicate(vbox).unwrap();
         let mut ids = HashSet::new();
-        w.root.walk(&mut |n| assert!(ids.insert(n.id), "duplicate id {}", n.id));
+        w.root
+            .walk(&mut |n| assert!(ids.insert(n.id), "duplicate id {}", n.id));
         let mut names = HashSet::new();
-        w.root.walk(&mut |n| assert!(names.insert(n.name.clone()), "duplicate name {}", n.name));
+        w.root
+            .walk(&mut |n| assert!(names.insert(n.name.clone()), "duplicate name {}", n.name));
         assert_eq!(w.node(vcopy).unwrap().children.len(), 4);
     }
 
@@ -570,10 +675,19 @@ mod tests {
         assert_eq!(w.index_in_parent(border), Some(0));
 
         let hbox = w.wrap(&[b, button], Kind::HorizontalBox).unwrap();
-        let kids: Vec<_> = w.node(hbox).unwrap().children.iter().map(|c| c.id).collect();
+        let kids: Vec<_> = w
+            .node(hbox)
+            .unwrap()
+            .children
+            .iter()
+            .map(|c| c.id)
+            .collect();
         assert_eq!(kids, [b, button]);
         assert_eq!(w.wrap(&[a, b], Kind::Border), Err(OpError::Full("Border")));
-        assert_eq!(w.wrap(&[a, hbox], Kind::VerticalBox), Err(OpError::NotSiblings));
+        assert_eq!(
+            w.wrap(&[a, hbox], Kind::VerticalBox),
+            Err(OpError::NotSiblings)
+        );
 
         w.unwrap(hbox).unwrap();
         assert_eq!(w.parent_of(b), Some(vbox));
@@ -593,7 +707,10 @@ mod tests {
         let text = w.add_parameter("Label", ValueClass::Text);
         let number = w.add_parameter("Size", ValueClass::Float);
         w.link_parameter(text, a, "text").unwrap();
-        assert_eq!(w.link_parameter(text, a, "font_size"), Err(OpError::BadTarget));
+        assert_eq!(
+            w.link_parameter(text, a, "font_size"),
+            Err(OpError::BadTarget)
+        );
         assert_eq!(w.link_parameter(text, a, "nope"), Err(OpError::BadTarget));
         w.link_parameter(number, a, "font_size").unwrap();
         assert_eq!(w.driver_of(a, "text").unwrap().id, text);
@@ -624,9 +741,22 @@ mod tests {
         let inst = w.new_instance(WidgetId::new(), "Card");
         let inst_id = inst.id;
         w.add(vbox, None, inst).unwrap();
-        w.node_mut(inst_id).unwrap().instance.as_mut().unwrap().overrides.insert(ParamId(9), Arg::Bind(p));
+        w.node_mut(inst_id)
+            .unwrap()
+            .instance
+            .as_mut()
+            .unwrap()
+            .overrides
+            .insert(ParamId(9), Arg::Bind(p));
         w.remove_parameter(p);
-        assert!(w.node(inst_id).unwrap().instance.as_ref().unwrap().overrides.is_empty());
+        assert!(w
+            .node(inst_id)
+            .unwrap()
+            .instance
+            .as_ref()
+            .unwrap()
+            .overrides
+            .is_empty());
     }
 
     #[test]

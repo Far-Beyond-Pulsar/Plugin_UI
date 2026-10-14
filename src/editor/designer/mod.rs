@@ -34,12 +34,24 @@ use overlay::{Colors, DropPreview, OverlayData, ViewShot};
 
 /// What a mouse drag on the canvas is doing.
 pub(crate) enum Gesture {
-    Pan { start_mouse: Vec2, start_pan: Vec2 },
-    Marquee { start: Vec2, current: Vec2, additive: bool, base: Vec<NodeId> },
+    Pan {
+        start_mouse: Vec2,
+        start_pan: Vec2,
+    },
+    Marquee {
+        start: Vec2,
+        current: Vec2,
+        additive: bool,
+        base: Vec<NodeId>,
+    },
     Move(MoveGesture),
     Resize(ResizeGesture),
     /// Dragging a widget that a box arranges, to a new place in the tree.
-    Reorder { ids: Vec<NodeId>, start_mouse: Vec2, active: bool },
+    Reorder {
+        ids: Vec<NodeId>,
+        start_mouse: Vec2,
+        active: bool,
+    },
 }
 
 pub(crate) struct MoveGesture {
@@ -124,7 +136,10 @@ impl DesignerPanel {
     /// A window position as canvas pixels.
     pub(crate) fn to_canvas_px(&self, position: Point<Pixels>) -> Vec2 {
         let b = self.bounds.get();
-        Vec2::new(f32::from(position.x - b.origin.x), f32::from(position.y - b.origin.y))
+        Vec2::new(
+            f32::from(position.x - b.origin.x),
+            f32::from(position.y - b.origin.y),
+        )
     }
 
     /// The frame for the widget as it is now, rebuilt only when something it depends on changed.
@@ -132,16 +147,35 @@ impl DesignerPanel {
         let doc = self.ctx.doc.read(cx);
         let view = self.ctx.view.read(cx);
         let size = view.layout_size(doc.asset());
-        let options = DisplayOptions { state: view.state, placeholders: view.placeholders, time: 0.0 };
-        let key = FrameKey::new(doc.revision(), self.ctx.lib.read(cx).revision(), size, &options);
+        let options = DisplayOptions {
+            state: view.state,
+            placeholders: view.placeholders,
+            time: 0.0,
+        };
+        let key = FrameKey::new(
+            doc.revision(),
+            self.ctx.lib.read(cx).revision(),
+            size,
+            &options,
+        );
         if let Some(frame) = &self.frame {
             if frame.key == key {
                 return frame.clone();
             }
         }
         let library = self.ctx.lib.read(cx).library();
-        let metrics = WindowMetrics { window, family: cx.theme().font_family.clone() };
-        let frame = Arc::new(Frame::build(doc.asset(), &*library, key, size, &options, &metrics));
+        let metrics = WindowMetrics {
+            window,
+            family: cx.theme().font_family.clone(),
+        };
+        let frame = Arc::new(Frame::build(
+            doc.asset(),
+            &*library,
+            key,
+            size,
+            &options,
+            &metrics,
+        ));
         self.frame = Some(frame.clone());
         frame
     }
@@ -159,7 +193,10 @@ impl DesignerPanel {
         let screen = view.screen_size(self.ctx.doc.read(cx).asset());
         let mut fitted = view.clone();
         fitted.fit(screen, canvas, 48.0);
-        if (fitted.zoom - view.zoom).abs() > 1e-4 || (fitted.pan.x - view.pan.x).abs() > 0.5 || (fitted.pan.y - view.pan.y).abs() > 0.5 {
+        if (fitted.zoom - view.zoom).abs() > 1e-4
+            || (fitted.pan.x - view.pan.x).abs() > 0.5
+            || (fitted.pan.y - view.pan.y).abs() > 0.5
+        {
             let view_entity = self.ctx.view.clone();
             window.defer(cx, move |_, cx| {
                 view_entity.update(cx, |v, cx| {
@@ -181,15 +218,20 @@ impl DesignerPanel {
         let sel = self.ctx.sel.read(cx);
         let primary = sel.primary();
         let marquee = match &self.gesture {
-            Some(Gesture::Marquee { start, current, .. }) => Some(Rect::from_corners(*start, *current)),
+            Some(Gesture::Marquee { start, current, .. }) => {
+                Some(Rect::from_corners(*start, *current))
+            }
             _ => None,
         };
         let parent_of_primary = primary.and_then(|p| widget.parent_of(p));
-        let primary_is_canvas = primary.is_some_and(|p| widget.slot_kind_of(p) == crate::model::SlotKind::Canvas);
+        let primary_is_canvas =
+            primary.is_some_and(|p| widget.slot_kind_of(p) == crate::model::SlotKind::Canvas);
         let anchors = primary.filter(|_| primary_is_canvas).and_then(|p| {
             let node = widget.node(p)?;
             let v = node.slot_view(crate::model::SlotKind::Canvas);
-            let parent = parent_of_primary.and_then(|pp| frame.screen.get(&pp)).copied()?;
+            let parent = parent_of_primary
+                .and_then(|pp| frame.screen.get(&pp))
+                .copied()?;
             Some((v.vec2("anchor_min"), v.vec2("anchor_max"), parent))
         });
         let mut locked = HashSet::new();
@@ -198,9 +240,17 @@ impl DesignerPanel {
                 locked.insert(n.id);
             }
         });
-        let screen = Hsla { h: theme.background.h, s: theme.background.s, l: (theme.background.l + 0.03).min(1.0), a: 1.0 };
+        let screen = Hsla {
+            h: theme.background.h,
+            s: theme.background.s,
+            l: (theme.background.l + 0.03).min(1.0),
+            a: 1.0,
+        };
         OverlayData {
-            parent_rect: parent_of_primary.and_then(|p| frame.screen.get(&p)).copied().filter(|_| primary.is_some_and(|p| p != widget.root.id)),
+            parent_rect: parent_of_primary
+                .and_then(|p| frame.screen.get(&p))
+                .copied()
+                .filter(|_| primary.is_some_and(|p| p != widget.root.id)),
             frame,
             view: ViewShot {
                 scale: view.scale(),
@@ -212,16 +262,25 @@ impl DesignerPanel {
             },
             selection: sel.ids().to_vec(),
             primary,
-            primary_name: primary.and_then(|p| widget.node(p)).map(|n| n.name.clone()).unwrap_or_default(),
+            primary_name: primary
+                .and_then(|p| widget.node(p))
+                .map(|n| n.name.clone())
+                .unwrap_or_default(),
             hover: self.hover,
             locked,
-            resizable: primary_is_canvas && primary.is_some_and(|p| widget.node(p).is_some_and(|n| !n.editor.locked)),
+            resizable: primary_is_canvas
+                && primary.is_some_and(|p| widget.node(p).is_some_and(|n| !n.editor.locked)),
             anchors,
             guides: self.guides.clone(),
             marquee,
             drop: self.drop_preview.clone(),
             colors: Colors {
-                background: Hsla { h: theme.background.h, s: theme.background.s, l: theme.background.l * 0.72, a: 1.0 },
+                background: Hsla {
+                    h: theme.background.h,
+                    s: theme.background.s,
+                    l: theme.background.l * 0.72,
+                    a: 1.0,
+                },
                 screen,
                 accent: theme.info,
                 muted: theme.muted_foreground,
@@ -289,7 +348,9 @@ impl Render for DesignerPanel {
             )
             .child(toolbar)
             .child(status)
-            .context_menu(move |menu, window, cx| super::menus::node_menu(menu, &ctx_menu, window, cx))
+            .context_menu(move |menu, window, cx| {
+                super::menus::node_menu(menu, &ctx_menu, window, cx)
+            })
     }
 }
 

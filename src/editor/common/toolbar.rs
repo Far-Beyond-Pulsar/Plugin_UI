@@ -19,17 +19,23 @@ pub fn document_controls<A: Asset>(
     cx: &App,
 ) -> impl IntoElement {
     let d = doc.read(cx);
-    let (dirty, can_save, can_undo, can_redo) = (d.is_dirty(), d.can_save(), d.can_undo(), d.can_redo());
+    let (dirty, can_save, can_undo, can_redo) =
+        (d.is_dirty(), d.can_save(), d.can_undo(), d.can_redo());
     let undo_tip = d
         .undo_label()
         .filter(|l| !l.is_empty())
-        .map_or("Undo (Ctrl+Z)".to_string(), |l| format!("Undo {l} (Ctrl+Z)"));
+        .map_or("Undo (Ctrl+Z)".to_string(), |l| {
+            format!("Undo {l} (Ctrl+Z)")
+        });
     let redo_tip = d
         .redo_label()
         .filter(|l| !l.is_empty())
-        .map_or("Redo (Ctrl+Shift+Z)".to_string(), |l| format!("Redo {l} (Ctrl+Shift+Z)"));
+        .map_or("Redo (Ctrl+Shift+Z)".to_string(), |l| {
+            format!("Redo {l} (Ctrl+Shift+Z)")
+        });
 
-    let (save_doc, revert_doc, undo_doc, redo_doc) = (doc.clone(), doc.clone(), doc.clone(), doc.clone());
+    let (save_doc, revert_doc, undo_doc, redo_doc) =
+        (doc.clone(), doc.clone(), doc.clone(), doc.clone());
 
     h_flex()
         .gap_1()
@@ -82,9 +88,18 @@ pub fn status_tag<A: Asset>(doc: &Entity<Document<A>>, cx: &App) -> AnyElement {
         return Tag::danger().small().child("Unreadable").into_any_element();
     }
     match d.status() {
-        Some(Status::SaveFailed(_)) => Tag::danger().small().child("Save failed").into_any_element(),
-        _ if d.is_dirty() => Tag::warning().small().child("Unsaved changes").into_any_element(),
-        _ if d.path().is_none() => Tag::secondary().small().child("Not on disk").into_any_element(),
+        Some(Status::SaveFailed(_)) => Tag::danger()
+            .small()
+            .child("Save failed")
+            .into_any_element(),
+        _ if d.is_dirty() => Tag::warning()
+            .small()
+            .child("Unsaved changes")
+            .into_any_element(),
+        _ if d.path().is_none() => Tag::secondary()
+            .small()
+            .child("Not on disk")
+            .into_any_element(),
         Some(Status::Reverted) => Tag::info().small().child("Reloaded").into_any_element(),
         _ => Tag::success().small().child("Saved").into_any_element(),
     }
@@ -92,7 +107,11 @@ pub fn status_tag<A: Asset>(doc: &Entity<Document<A>>, cx: &App) -> AnyElement {
 
 /// Banners for problems with the file itself: unreadable, failed save, or
 /// repairs made while loading. Empty when the file is fine.
-pub fn file_banners<A: Asset>(id: &'static str, doc: &Entity<Document<A>>, cx: &App) -> Vec<AnyElement> {
+pub fn file_banners<A: Asset>(
+    id: &'static str,
+    doc: &Entity<Document<A>>,
+    cx: &App,
+) -> Vec<AnyElement> {
     let mut out = Vec::new();
     let d = doc.read(cx);
 
@@ -112,7 +131,15 @@ pub fn file_banners<A: Asset>(id: &'static str, doc: &Entity<Document<A>>, cx: &
         );
     }
     if let Some(Status::SaveFailed(error)) = d.status() {
-        out.push(banner(Severity::Error, format!("Couldn't save: {error}"), Vec::new(), cx).into_any_element());
+        out.push(
+            banner(
+                Severity::Error,
+                format!("Couldn't save: {error}"),
+                Vec::new(),
+                cx,
+            )
+            .into_any_element(),
+        );
     }
     if !d.load_notes().is_empty() {
         let dismiss = doc.clone();
@@ -120,11 +147,15 @@ pub fn file_banners<A: Asset>(id: &'static str, doc: &Entity<Document<A>>, cx: &
             banner(
                 Severity::Warning,
                 format!("Repaired while loading: {}", d.load_notes().join("; ")),
-                vec![Button::new(SharedString::from(format!("{id}-dismiss-notes")))
-                    .label("Dismiss")
-                    .ghost()
-                    .small()
-                    .on_click(move |_, _, cx| dismiss.update(cx, |d, cx| d.dismiss_load_notes(cx)))],
+                vec![
+                    Button::new(SharedString::from(format!("{id}-dismiss-notes")))
+                        .label("Dismiss")
+                        .ghost()
+                        .small()
+                        .on_click(move |_, _, cx| {
+                            dismiss.update(cx, |d, cx| d.dismiss_load_notes(cx))
+                        }),
+                ],
                 cx,
             )
             .into_any_element(),

@@ -97,7 +97,12 @@ impl Rect {
     pub fn union(&self, o: &Rect) -> Rect {
         let x0 = self.x.min(o.x);
         let y0 = self.y.min(o.y);
-        Rect::new(x0, y0, self.right().max(o.right()) - x0, self.bottom().max(o.bottom()) - y0)
+        Rect::new(
+            x0,
+            y0,
+            self.right().max(o.right()) - x0,
+            self.bottom().max(o.bottom()) - y0,
+        )
     }
 
     /// Shrunk by `i` on each side; never negative in size.
@@ -139,10 +144,20 @@ pub struct Insets {
 }
 
 impl Insets {
-    pub const ZERO: Insets = Insets { left: 0.0, top: 0.0, right: 0.0, bottom: 0.0 };
+    pub const ZERO: Insets = Insets {
+        left: 0.0,
+        top: 0.0,
+        right: 0.0,
+        bottom: 0.0,
+    };
 
     pub const fn new(left: f32, top: f32, right: f32, bottom: f32) -> Self {
-        Self { left, top, right, bottom }
+        Self {
+            left,
+            top,
+            right,
+            bottom,
+        }
     }
 
     pub fn horizontal(&self) -> f32 {
@@ -181,11 +196,25 @@ impl Color {
         let byte = |s: &str| u8::from_str_radix(s, 16).ok().map(|v| v as f32 / 255.0);
         match hex.len() {
             3 => {
-                let n = |i: usize| u8::from_str_radix(&hex[i..i + 1], 16).ok().map(|v| (v * 17) as f32 / 255.0);
+                let n = |i: usize| {
+                    u8::from_str_radix(&hex[i..i + 1], 16)
+                        .ok()
+                        .map(|v| (v * 17) as f32 / 255.0)
+                };
                 Some(Color::rgba(n(0)?, n(1)?, n(2)?, 1.0))
             }
-            6 => Some(Color::rgba(byte(&hex[0..2])?, byte(&hex[2..4])?, byte(&hex[4..6])?, 1.0)),
-            8 => Some(Color::rgba(byte(&hex[0..2])?, byte(&hex[2..4])?, byte(&hex[4..6])?, byte(&hex[6..8])?)),
+            6 => Some(Color::rgba(
+                byte(&hex[0..2])?,
+                byte(&hex[2..4])?,
+                byte(&hex[4..6])?,
+                1.0,
+            )),
+            8 => Some(Color::rgba(
+                byte(&hex[0..2])?,
+                byte(&hex[2..4])?,
+                byte(&hex[4..6])?,
+                byte(&hex[6..8])?,
+            )),
             _ => None,
         }
     }
@@ -196,7 +225,13 @@ impl Color {
         if q(self.a) == 255 {
             format!("#{:02x}{:02x}{:02x}", q(self.r), q(self.g), q(self.b))
         } else {
-            format!("#{:02x}{:02x}{:02x}{:02x}", q(self.r), q(self.g), q(self.b), q(self.a))
+            format!(
+                "#{:02x}{:02x}{:02x}{:02x}",
+                q(self.r),
+                q(self.g),
+                q(self.b),
+                q(self.a)
+            )
         }
     }
 
@@ -206,12 +241,20 @@ impl Color {
 
     /// The alpha multiplied by `k`.
     pub fn faded(self, k: f32) -> Color {
-        Color { a: self.a * k, ..self }
+        Color {
+            a: self.a * k,
+            ..self
+        }
     }
 
     pub fn lerp(self, o: Color, t: f32) -> Color {
         let m = |a: f32, b: f32| a + (b - a) * t;
-        Color::rgba(m(self.r, o.r), m(self.g, o.g), m(self.b, o.b), m(self.a, o.a))
+        Color::rgba(
+            m(self.r, o.r),
+            m(self.g, o.g),
+            m(self.b, o.b),
+            m(self.a, o.a),
+        )
     }
 
     pub fn is_transparent(&self) -> bool {
@@ -230,11 +273,21 @@ pub struct Affine {
 }
 
 impl Affine {
-    pub const IDENTITY: Affine = Affine { sx: 1.0, sy: 1.0, tx: 0.0, ty: 0.0 };
+    pub const IDENTITY: Affine = Affine {
+        sx: 1.0,
+        sy: 1.0,
+        tx: 0.0,
+        ty: 0.0,
+    };
 
     /// Scale by `k` about `pivot`, then move by `d`.
     pub fn about(pivot: Vec2, k: Vec2, d: Vec2) -> Affine {
-        Affine { sx: k.x, sy: k.y, tx: pivot.x - pivot.x * k.x + d.x, ty: pivot.y - pivot.y * k.y + d.y }
+        Affine {
+            sx: k.x,
+            sy: k.y,
+            tx: pivot.x - pivot.x * k.x + d.x,
+            ty: pivot.y - pivot.y * k.y + d.y,
+        }
     }
 
     pub fn apply(&self, p: Vec2) -> Vec2 {
@@ -248,12 +301,25 @@ impl Affine {
 
     /// Apply `inner` first, then `self`.
     pub fn after(&self, inner: &Affine) -> Affine {
-        Affine { sx: self.sx * inner.sx, sy: self.sy * inner.sy, tx: self.sx * inner.tx + self.tx, ty: self.sy * inner.ty + self.ty }
+        Affine {
+            sx: self.sx * inner.sx,
+            sy: self.sy * inner.sy,
+            tx: self.sx * inner.tx + self.tx,
+            ty: self.sy * inner.ty + self.ty,
+        }
     }
 
     pub fn inverse(&self) -> Affine {
-        let (sx, sy) = (if self.sx == 0.0 { 1.0 } else { 1.0 / self.sx }, if self.sy == 0.0 { 1.0 } else { 1.0 / self.sy });
-        Affine { sx, sy, tx: -self.tx * sx, ty: -self.ty * sy }
+        let (sx, sy) = (
+            if self.sx == 0.0 { 1.0 } else { 1.0 / self.sx },
+            if self.sy == 0.0 { 1.0 } else { 1.0 / self.sy },
+        );
+        Affine {
+            sx,
+            sy,
+            tx: -self.tx * sx,
+            ty: -self.ty * sy,
+        }
     }
 
     /// The mean scale, for sizes that can't stretch unevenly (text, strokes).
@@ -273,7 +339,12 @@ pub fn json_array4(v: &Json) -> Option<[f32; 4]> {
     if a.len() != 4 {
         return None;
     }
-    Some([json_f32(&a[0])?, json_f32(&a[1])?, json_f32(&a[2])?, json_f32(&a[3])?])
+    Some([
+        json_f32(&a[0])?,
+        json_f32(&a[1])?,
+        json_f32(&a[2])?,
+        json_f32(&a[3])?,
+    ])
 }
 
 pub fn json_array2(v: &Json) -> Option<[f32; 2]> {
@@ -296,7 +367,10 @@ mod tests {
 
     #[test]
     fn colors_round_trip_through_hex() {
-        assert_eq!(Color::from_hex("#ff8000"), Some(Color::rgba(1.0, 128.0 / 255.0, 0.0, 1.0)));
+        assert_eq!(
+            Color::from_hex("#ff8000"),
+            Some(Color::rgba(1.0, 128.0 / 255.0, 0.0, 1.0))
+        );
         assert_eq!(Color::from_hex("#f80").unwrap().to_hex(), "#ff8800");
         assert_eq!(Color::from_hex("#11223380").unwrap().to_hex(), "#11223380");
         assert_eq!(Color::from_hex("112233"), None);
@@ -309,8 +383,15 @@ mod tests {
         let r = Rect::new(10.0, 20.0, 100.0, 50.0);
         assert!(r.contains(Vec2::new(10.0, 20.0)));
         assert!(!r.contains(Vec2::new(110.0, 20.0)));
-        assert_eq!(r.inset(Insets::new(5.0, 5.0, 5.0, 5.0)), Rect::new(15.0, 25.0, 90.0, 40.0));
-        assert_eq!(r.inset(Insets::new(80.0, 0.0, 80.0, 0.0)).w, 0.0, "insets never go negative");
+        assert_eq!(
+            r.inset(Insets::new(5.0, 5.0, 5.0, 5.0)),
+            Rect::new(15.0, 25.0, 90.0, 40.0)
+        );
+        assert_eq!(
+            r.inset(Insets::new(80.0, 0.0, 80.0, 0.0)).w,
+            0.0,
+            "insets never go negative"
+        );
         let o = Rect::new(60.0, 0.0, 100.0, 30.0);
         assert_eq!(r.intersection(&o), Some(Rect::new(60.0, 20.0, 50.0, 10.0)));
         assert_eq!(r.intersection(&Rect::new(200.0, 0.0, 5.0, 5.0)), None);

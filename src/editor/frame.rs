@@ -19,7 +19,12 @@ pub struct FrameKey {
 }
 
 impl FrameKey {
-    pub fn new(doc_revision: u64, library_revision: u64, size: Vec2, options: &DisplayOptions) -> Self {
+    pub fn new(
+        doc_revision: u64,
+        library_revision: u64,
+        size: Vec2,
+        options: &DisplayOptions,
+    ) -> Self {
         Self {
             doc_revision,
             library_revision,
@@ -55,7 +60,8 @@ impl Frame {
         let mut tree = resolve::resolve(widget, lib);
         layout::layout(&mut tree, size, metrics);
         let cmds = display::build(&tree, options);
-        let (mut screen, mut layout_rects, mut world) = (HashMap::new(), HashMap::new(), HashMap::new());
+        let (mut screen, mut layout_rects, mut world) =
+            (HashMap::new(), HashMap::new(), HashMap::new());
         tree.walk(&mut |n| {
             // A node of the edited widget: it owns itself.
             if n.own && n.key.last() == Some(&n.owner) {
@@ -64,7 +70,15 @@ impl Frame {
                 world.insert(n.owner, n.world);
             }
         });
-        Frame { key, size, tree, cmds, screen, layout: layout_rects, world }
+        Frame {
+            key,
+            size,
+            tree,
+            cmds,
+            screen,
+            layout: layout_rects,
+            world,
+        }
     }
 
     /// The node to select for a click at `p` (drawn space): the topmost
@@ -74,15 +88,24 @@ impl Frame {
     }
 
     /// The node ids of the edited widget whose drawn rectangle meets `area`.
-    pub fn in_area(&self, area: Rect, widget: &WidgetAsset, accept: &dyn Fn(NodeId) -> bool) -> Vec<NodeId> {
+    pub fn in_area(
+        &self,
+        area: Rect,
+        widget: &WidgetAsset,
+        accept: &dyn Fn(NodeId) -> bool,
+    ) -> Vec<NodeId> {
         let mut hits: Vec<NodeId> = self
             .screen
             .iter()
-            .filter(|(&id, rect)| id != widget.root.id && accept(id) && rect.intersects(&area) && !rect.is_empty())
+            .filter(|(&id, rect)| {
+                id != widget.root.id && accept(id) && rect.intersects(&area) && !rect.is_empty()
+            })
             .filter(|(&id, rect)| {
                 // A container is picked only when the area swallows it whole;
                 // otherwise the things in it are picked instead.
-                widget.node(id).is_some_and(|n| n.children.is_empty() || area_contains(&area, rect))
+                widget
+                    .node(id)
+                    .is_some_and(|n| n.children.is_empty() || area_contains(&area, rect))
             })
             .map(|(&id, _)| id)
             .collect();
@@ -91,7 +114,12 @@ impl Frame {
     }
 
     /// The deepest container of the edited widget under `p` that can take another child.
-    pub fn container_at(&self, p: Vec2, widget: &WidgetAsset, exclude: &dyn Fn(NodeId) -> bool) -> NodeId {
+    pub fn container_at(
+        &self,
+        p: Vec2,
+        widget: &WidgetAsset,
+        exclude: &dyn Fn(NodeId) -> bool,
+    ) -> NodeId {
         let mut best = widget.root.id;
         let mut best_depth = 0;
         for (&id, rect) in &self.screen {
@@ -112,7 +140,10 @@ impl Frame {
 }
 
 fn area_contains(area: &Rect, rect: &Rect) -> bool {
-    rect.x >= area.x && rect.y >= area.y && rect.right() <= area.right() && rect.bottom() <= area.bottom()
+    rect.x >= area.x
+        && rect.y >= area.y
+        && rect.right() <= area.right()
+        && rect.bottom() <= area.bottom()
 }
 
 #[cfg(test)]
@@ -130,20 +161,39 @@ mod tests {
         panel.set_prop("background", json!("#223344"));
         let panel_id = panel.id;
         w.add(root, None, panel).unwrap();
-        w.node_mut(panel_id).unwrap().set_slot(crate::model::SlotKind::Canvas, "offsets", json!([100.0, 100.0, 400.0, 300.0]));
+        w.node_mut(panel_id).unwrap().set_slot(
+            crate::model::SlotKind::Canvas,
+            "offsets",
+            json!([100.0, 100.0, 400.0, 300.0]),
+        );
         let mut leaf = w.new_node(Kind::Spacer);
         leaf.set_prop("size", json!([50.0, 50.0]));
         let leaf_id = leaf.id;
         w.add(panel_id, None, leaf).unwrap();
-        w.node_mut(leaf_id).unwrap().set_slot(crate::model::SlotKind::Single, "h_align", json!("left"));
-        w.node_mut(leaf_id).unwrap().set_slot(crate::model::SlotKind::Single, "v_align", json!("top"));
+        w.node_mut(leaf_id).unwrap().set_slot(
+            crate::model::SlotKind::Single,
+            "h_align",
+            json!("left"),
+        );
+        w.node_mut(leaf_id).unwrap().set_slot(
+            crate::model::SlotKind::Single,
+            "v_align",
+            json!("top"),
+        );
         (w, root, panel_id, leaf_id)
     }
 
     fn frame(w: &WidgetAsset) -> Frame {
         let size = Vec2::new(1000.0, 700.0);
         let options = DisplayOptions::default();
-        Frame::build(w, &NoWidgets, FrameKey::new(1, 0, size, &options), size, &options, &FixedMetrics)
+        Frame::build(
+            w,
+            &NoWidgets,
+            FrameKey::new(1, 0, size, &options),
+            size,
+            &options,
+            &FixedMetrics,
+        )
     }
 
     #[test]
@@ -162,10 +212,18 @@ mod tests {
         let f = frame(&w);
         let any = |_: NodeId| true;
         assert_eq!(f.pick(Vec2::new(110.0, 110.0), &any), Some(leaf));
-        assert_eq!(f.pick(Vec2::new(300.0, 300.0), &any), Some(panel), "a painted panel takes clicks");
+        assert_eq!(
+            f.pick(Vec2::new(300.0, 300.0), &any),
+            Some(panel),
+            "a painted panel takes clicks"
+        );
         assert_eq!(f.pick(Vec2::new(900.0, 600.0), &any), None);
         let not_leaf = |id: NodeId| id != leaf;
-        assert_eq!(f.pick(Vec2::new(110.0, 110.0), &not_leaf), Some(panel), "a locked widget lets clicks through");
+        assert_eq!(
+            f.pick(Vec2::new(110.0, 110.0), &not_leaf),
+            Some(panel),
+            "a locked widget lets clicks through"
+        );
     }
 
     #[test]
@@ -173,9 +231,17 @@ mod tests {
         let (w, _, panel, leaf) = widget();
         let f = frame(&w);
         let any = |_: NodeId| true;
-        assert_eq!(f.in_area(Rect::new(90.0, 90.0, 30.0, 30.0), &w, &any), vec![leaf]);
-        assert_eq!(f.in_area(Rect::new(0.0, 0.0, 600.0, 500.0), &w, &any), vec![panel, leaf]);
-        assert!(f.in_area(Rect::new(800.0, 600.0, 10.0, 10.0), &w, &any).is_empty());
+        assert_eq!(
+            f.in_area(Rect::new(90.0, 90.0, 30.0, 30.0), &w, &any),
+            vec![leaf]
+        );
+        assert_eq!(
+            f.in_area(Rect::new(0.0, 0.0, 600.0, 500.0), &w, &any),
+            vec![panel, leaf]
+        );
+        assert!(f
+            .in_area(Rect::new(800.0, 600.0, 10.0, 10.0), &w, &any)
+            .is_empty());
     }
 
     #[test]

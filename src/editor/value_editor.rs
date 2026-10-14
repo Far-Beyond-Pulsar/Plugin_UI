@@ -7,12 +7,12 @@ use std::rc::Rc;
 use gpui::*;
 use serde_json::{json, Value as Json};
 use ui::button::{Button, ButtonVariants};
-use ui_common::MeshAssetPicker;
 use ui::color_picker::ColorPicker;
 use ui::input::{NumberInput, TextInput};
 use ui::menu::DropdownMenu;
 use ui::switch::Switch;
 use ui::{h_flex, ActiveTheme, Disableable, Sizable, Size};
+use ui_common::MeshAssetPicker;
 
 use crate::model::geom::{json_array2, json_array4, num, Color};
 use crate::model::schema::{PropType, ValueClass};
@@ -23,8 +23,15 @@ use super::fields::{Fields, NumberSpec};
 pub fn type_for_class(class: ValueClass) -> PropType {
     match class {
         ValueClass::Bool => PropType::Bool,
-        ValueClass::Float => PropType::Float { min: -1_000_000.0, max: 1_000_000.0, step: 1.0 },
-        ValueClass::Int => PropType::Int { min: -1_000_000, max: 1_000_000 },
+        ValueClass::Float => PropType::Float {
+            min: -1_000_000.0,
+            max: 1_000_000.0,
+            step: 1.0,
+        },
+        ValueClass::Int => PropType::Int {
+            min: -1_000_000,
+            max: 1_000_000,
+        },
         ValueClass::Text | ValueClass::Choice => PropType::Text { multiline: false },
         ValueClass::Color => PropType::Color,
         ValueClass::Vec2 => PropType::Vec2,
@@ -35,10 +42,25 @@ pub fn type_for_class(class: ValueClass) -> PropType {
 
 fn spec_for(ty: &PropType) -> NumberSpec {
     match *ty {
-        PropType::Float { min, max, step } => NumberSpec { step, min, max, decimals: if step < 1.0 { 2 } else { 1 } },
-        PropType::Int { min, max } => NumberSpec { step: 1.0, min: min as f32, max: max as f32, decimals: 0 },
+        PropType::Float { min, max, step } => NumberSpec {
+            step,
+            min,
+            max,
+            decimals: if step < 1.0 { 2 } else { 1 },
+        },
+        PropType::Int { min, max } => NumberSpec {
+            step: 1.0,
+            min: min as f32,
+            max: max as f32,
+            decimals: 0,
+        },
         // Vectors and margins: any size, whole-ish steps.
-        _ => NumberSpec { step: 1.0, min: -100_000.0, max: 100_000.0, decimals: 1 },
+        _ => NumberSpec {
+            step: 1.0,
+            min: -100_000.0,
+            max: 100_000.0,
+            decimals: 1,
+        },
     }
 }
 
@@ -76,7 +98,9 @@ pub fn value_editor<V: 'static>(
             Switch::new(SharedString::from(format!("{key}-switch")))
                 .checked(current.as_bool().unwrap_or(false))
                 .disabled(disabled)
-                .on_click(cx.listener(move |this, checked: &bool, _, cx| set(this, json!(*checked), cx)))
+                .on_click(
+                    cx.listener(move |this, checked: &bool, _, cx| set(this, json!(*checked), cx)),
+                )
                 .into_any_element()
         }
         PropType::Float { .. } | PropType::Int { .. } => {
@@ -88,11 +112,25 @@ pub fn value_editor<V: 'static>(
                 spec,
                 current.as_f64().map(|v| v as f32),
                 move |this, cx| g(this, cx).and_then(|j| j.as_f64()).map(|v| v as f32),
-                move |this, v, cx| s(this, if is_int { json!(v.round() as i64) } else { num(v) }, cx),
+                move |this, v, cx| {
+                    s(
+                        this,
+                        if is_int {
+                            json!(v.round() as i64)
+                        } else {
+                            num(v)
+                        },
+                        cx,
+                    )
+                },
                 window,
                 cx,
             );
-            div().flex_1().min_w_0().child(NumberInput::new(&input).small().disabled(disabled)).into_any_element()
+            div()
+                .flex_1()
+                .min_w_0()
+                .child(NumberInput::new(&input).small().disabled(disabled))
+                .into_any_element()
         }
         PropType::Text { multiline } => {
             let (g, s) = (get.clone(), set.clone());
@@ -106,13 +144,27 @@ pub fn value_editor<V: 'static>(
                 window,
                 cx,
             );
-            div().flex_1().min_w_0().child(TextInput::new(&input).small().disabled(disabled)).into_any_element()
+            div()
+                .flex_1()
+                .min_w_0()
+                .child(TextInput::new(&input).small().disabled(disabled))
+                .into_any_element()
         }
         PropType::Image => {
             let path = current.as_str().unwrap_or("").to_string();
             let s = set.clone();
-            let picker = fields.image(key.to_string(), &path, move |this, chosen, cx| s(this, json!(chosen.replace('\\', "/")), cx), window, cx);
-            let label = if path.is_empty() { "No image".to_string() } else { path.rsplit('/').next().unwrap_or(&path).to_string() };
+            let picker = fields.image(
+                key.to_string(),
+                &path,
+                move |this, chosen, cx| s(this, json!(chosen.replace('\\', "/")), cx),
+                window,
+                cx,
+            );
+            let label = if path.is_empty() {
+                "No image".to_string()
+            } else {
+                path.rsplit('/').next().unwrap_or(&path).to_string()
+            };
             let (s, clear) = (set.clone(), set.clone());
             let clear_button = Button::new(SharedString::from(format!("{key}-clear")))
                 .icon(ui::IconName::Close)
@@ -128,21 +180,36 @@ pub fn value_editor<V: 'static>(
                 .items_center()
                 .child(
                     div().flex_1().min_w_0().child(
-                        ui::popover::Popover::<MeshAssetPicker>::new(SharedString::from(format!("{key}-image-popover")))
-                            .anchor(Corner::BottomLeft)
-                            .trigger(Button::new(SharedString::from(format!("{key}-image"))).label(label).small().outline().w_full().disabled(disabled).dropdown_caret(true))
-                            .content(move |_, _| picker.clone()),
+                        ui::popover::Popover::<MeshAssetPicker>::new(SharedString::from(format!(
+                            "{key}-image-popover"
+                        )))
+                        .anchor(Corner::BottomLeft)
+                        .trigger(
+                            Button::new(SharedString::from(format!("{key}-image")))
+                                .label(label)
+                                .small()
+                                .outline()
+                                .w_full()
+                                .disabled(disabled)
+                                .dropdown_caret(true),
+                        )
+                        .content(move |_, _| picker.clone()),
                     ),
                 )
                 .child(clear_button)
                 // A file dragged in from the file manager also sets it.
-                .on_drop(cx.listener(move |this, drag: &plugin_editor_api::AssetPayload, _, cx| {
-                    s(this, json!(drag.engine_path.replace('\\', "/")), cx);
-                }))
+                .on_drop(
+                    cx.listener(move |this, drag: &plugin_editor_api::AssetPayload, _, cx| {
+                        s(this, json!(drag.engine_path.replace('\\', "/")), cx);
+                    }),
+                )
                 .into_any_element()
         }
         PropType::Color => {
-            let color = current.as_str().and_then(Color::from_hex).unwrap_or(Color::TRANSPARENT);
+            let color = current
+                .as_str()
+                .and_then(Color::from_hex)
+                .unwrap_or(Color::TRANSPARENT);
             let (g, s) = (get.clone(), set.clone());
             let picker = fields.color(
                 format!("{key}-picker"),
@@ -172,8 +239,18 @@ pub fn value_editor<V: 'static>(
                 .min_w_0()
                 .gap_1p5()
                 .items_center()
-                .child(div().flex_shrink_0().when_disabled(disabled).child(ColorPicker::new(&picker).size(Size::Small)))
-                .child(div().flex_1().min_w_0().child(TextInput::new(&hex).small().disabled(disabled)))
+                .child(
+                    div()
+                        .flex_shrink_0()
+                        .when_disabled(disabled)
+                        .child(ColorPicker::new(&picker).size(Size::Small)),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .child(TextInput::new(&hex).small().disabled(disabled)),
+                )
                 .into_any_element()
         }
         PropType::Vec2 | PropType::Insets | PropType::Corners | PropType::Offsets => {
@@ -198,27 +275,46 @@ pub fn value_editor<V: 'static>(
                         move |this, cx| g(this, cx).and_then(|j| component(&j, i, n))
                     },
                     move |this, v, cx| {
-                        let mut parts = g(this, cx).and_then(|j| components(&j, n)).unwrap_or_else(|| vec![0.0; n]);
+                        let mut parts = g(this, cx)
+                            .and_then(|j| components(&j, n))
+                            .unwrap_or_else(|| vec![0.0; n]);
                         parts[i] = v;
                         s(this, array_json(&parts), cx);
                     },
                     window,
                     cx,
                 );
-                let cell = div()
-                    .flex_1()
-                    .min_w_0()
-                    .child(NumberInput::new(&input).small().disabled(disabled).prefix(div().text_xs().text_color(theme.muted_foreground).child(*label)));
+                let cell = div().flex_1().min_w_0().child(
+                    NumberInput::new(&input).small().disabled(disabled).prefix(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child(*label),
+                    ),
+                );
                 if n == 4 && i == 2 {
-                    rows.push(std::mem::replace(&mut row, h_flex().flex_1().min_w_0().gap_1()));
+                    rows.push(std::mem::replace(
+                        &mut row,
+                        h_flex().flex_1().min_w_0().gap_1(),
+                    ));
                 }
                 row = row.child(cell);
             }
             rows.push(row);
-            gpui::div().flex_1().min_w_0().flex().flex_col().gap_1().children(rows).into_any_element()
+            gpui::div()
+                .flex_1()
+                .min_w_0()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .children(rows)
+                .into_any_element()
         }
         PropType::Choice(options) => {
-            let label = options.iter().find(|(v, _)| Some(*v) == current.as_str()).map_or("", |(_, l)| *l);
+            let label = options
+                .iter()
+                .find(|(v, _)| Some(*v) == current.as_str())
+                .map_or("", |(_, l)| *l);
             let entity = cx.entity();
             let set = Rc::new(set);
             Button::new(SharedString::from(format!("{key}-choice")))

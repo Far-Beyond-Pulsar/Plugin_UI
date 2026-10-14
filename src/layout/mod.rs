@@ -70,7 +70,11 @@ const INF: f32 = f32::INFINITY;
 /// Lay out `root` to fill `viewport`.
 pub fn layout(root: &mut ResolvedNode, viewport: Vec2, metrics: &dyn TextMetrics) {
     measure(root, viewport, metrics);
-    arrange(root, Rect::new(0.0, 0.0, viewport.x, viewport.y), Affine::IDENTITY);
+    arrange(
+        root,
+        Rect::new(0.0, 0.0, viewport.x, viewport.y),
+        Affine::IDENTITY,
+    );
     finalize(root, Affine::IDENTITY);
 }
 
@@ -89,7 +93,11 @@ pub fn is_collapsed(node: &ResolvedNode) -> bool {
 
 /// Whether the node is drawn (it may still take up space).
 pub fn is_drawn(node: &ResolvedNode) -> bool {
-    !node.design_hidden && !matches!(node.view().choice("visibility").as_str(), "collapsed" | "hidden")
+    !node.design_hidden
+        && !matches!(
+            node.view().choice("visibility").as_str(),
+            "collapsed" | "hidden"
+        )
 }
 
 /// Whether clicks can land on the node.
@@ -221,11 +229,19 @@ fn text_size(node: &ResolvedNode, avail_w: f32, m: &dyn TextMetrics) -> Vec2 {
 }
 
 /// A node with at most one child, plus `extra` padding of its own.
-fn measure_single(node: &mut ResolvedNode, avail: Vec2, extra: Insets, m: &dyn TextMetrics) -> Vec2 {
+fn measure_single(
+    node: &mut ResolvedNode,
+    avail: Vec2,
+    extra: Insets,
+    m: &dyn TextMetrics,
+) -> Vec2 {
     let mut size = Vec2::new(extra.horizontal(), extra.vertical());
     if let Some(child) = node.children.iter_mut().find(|c| !is_collapsed(c)) {
         let p = pad(child);
-        let inner = Vec2::new(avail.x - extra.horizontal() - p.horizontal(), avail.y - extra.vertical() - p.vertical());
+        let inner = Vec2::new(
+            avail.x - extra.horizontal() - p.horizontal(),
+            avail.y - extra.vertical() - p.vertical(),
+        );
         measure(child, inner, m);
         size.x += child.desired.x + p.horizontal();
         size.y += child.desired.y + p.vertical();
@@ -238,7 +254,11 @@ fn measure_stack(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) -> V
     let mut size = Vec2::ZERO;
     for child in node.children.iter_mut().filter(|c| !is_collapsed(c)) {
         let p = pad(child);
-        measure(child, Vec2::new(avail.x - p.horizontal(), avail.y - p.vertical()), m);
+        measure(
+            child,
+            Vec2::new(avail.x - p.horizontal(), avail.y - p.vertical()),
+            m,
+        );
         size.x = size.x.max(child.desired.x + p.horizontal());
         size.y = size.y.max(child.desired.y + p.vertical());
     }
@@ -248,9 +268,19 @@ fn measure_stack(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) -> V
 fn measure_size_box(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) -> Vec2 {
     let (w, h, min_w, min_h, max_w, max_h) = {
         let v = node.view();
-        (v.opt_f32("width"), v.opt_f32("height"), v.opt_f32("min_width"), v.opt_f32("min_height"), v.opt_f32("max_width"), v.opt_f32("max_height"))
+        (
+            v.opt_f32("width"),
+            v.opt_f32("height"),
+            v.opt_f32("min_width"),
+            v.opt_f32("min_height"),
+            v.opt_f32("max_width"),
+            v.opt_f32("max_height"),
+        )
     };
-    let inner_avail = Vec2::new(w.or(max_w).unwrap_or(avail.x).min(avail.x), h.or(max_h).unwrap_or(avail.y).min(avail.y));
+    let inner_avail = Vec2::new(
+        w.or(max_w).unwrap_or(avail.x).min(avail.x),
+        h.or(max_h).unwrap_or(avail.y).min(avail.y),
+    );
     let content = measure_single(node, inner_avail, Insets::ZERO, m);
     let clamp = |value: f32, forced: Option<f32>, lo: Option<f32>, hi: Option<f32>| {
         let mut v = forced.unwrap_or(value);
@@ -262,7 +292,10 @@ fn measure_size_box(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) -
         }
         v
     };
-    Vec2::new(clamp(content.x, w, min_w, max_w), clamp(content.y, h, min_h, max_h))
+    Vec2::new(
+        clamp(content.x, w, min_w, max_w),
+        clamp(content.y, h, min_h, max_h),
+    )
 }
 
 // ── Arrange ────────────────────────────────────────────────────────────────
@@ -306,7 +339,12 @@ fn arrange_stack(node: &mut ResolvedNode, area: Rect) {
 pub(crate) fn place_in(area: Rect, child: &ResolvedNode) -> Rect {
     let inner = area.inset(pad(child));
     let v = child.slot_view();
-    place(inner, child.desired, &v.choice("h_align"), &v.choice("v_align"))
+    place(
+        inner,
+        child.desired,
+        &v.choice("h_align"),
+        &v.choice("v_align"),
+    )
 }
 
 /// `desired` placed in `inner` by alignment (`fill` takes all the space).
@@ -316,7 +354,14 @@ pub(crate) fn place(inner: Rect, desired: Vec2, h: &str, v: &str) -> Rect {
     Rect::new(x, y, w, hh)
 }
 
-fn align_axis(start: f32, space: f32, desired: f32, align: &str, low: &str, high: &str) -> (f32, f32) {
+fn align_axis(
+    start: f32,
+    space: f32,
+    desired: f32,
+    align: &str,
+    low: &str,
+    high: &str,
+) -> (f32, f32) {
     if align == low {
         (start, desired)
     } else if align == high {
@@ -336,10 +381,21 @@ fn arrange_scale_box(node: &mut ResolvedNode) {
     };
     for child in node.children.iter_mut().filter(|c| !is_collapsed(c)) {
         let p = pad(child);
-        let natural = Vec2::new(child.desired.x + p.horizontal(), child.desired.y + p.vertical());
+        let natural = Vec2::new(
+            child.desired.x + p.horizontal(),
+            child.desired.y + p.vertical(),
+        );
         let k = Vec2::new(
-            if natural.x > 0.0 { rect.w / natural.x } else { 1.0 },
-            if natural.y > 0.0 { rect.h / natural.y } else { 1.0 },
+            if natural.x > 0.0 {
+                rect.w / natural.x
+            } else {
+                1.0
+            },
+            if natural.y > 0.0 {
+                rect.h / natural.y
+            } else {
+                1.0
+            },
         );
         let contain = k.x.min(k.y);
         let scale = match stretch.as_str() {
@@ -352,8 +408,16 @@ fn arrange_scale_box(node: &mut ResolvedNode) {
         // Lay the child out at its natural size, then scale it about its own
         // corner so the result is centred in the box.
         let scaled = Vec2::new(natural.x * scale.x, natural.y * scale.y);
-        let target = Vec2::new(rect.x + (rect.w - scaled.x) * 0.5, rect.y + (rect.h - scaled.y) * 0.5);
-        let cell = Rect::new(target.x + p.left, target.y + p.top, child.desired.x, child.desired.y);
+        let target = Vec2::new(
+            rect.x + (rect.w - scaled.x) * 0.5,
+            rect.y + (rect.h - scaled.y) * 0.5,
+        );
+        let cell = Rect::new(
+            target.x + p.left,
+            target.y + p.top,
+            child.desired.x,
+            child.desired.y,
+        );
         arrange(child, cell, Affine::about(target, scale, Vec2::ZERO));
     }
 }

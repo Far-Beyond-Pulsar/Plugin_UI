@@ -74,7 +74,16 @@ impl Render for DragGhost {
             .border_1()
             .border_color(theme.info)
             .shadow_md()
-            .child(Icon::new(self.icon.clone()).size(px(14.0)).text_color(theme.info))
-            .child(div().text_sm().text_color(theme.foreground).child(self.label.clone()))
+            .child(
+                Icon::new(self.icon.clone())
+                    .size(px(14.0))
+                    .text_color(theme.info),
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.foreground)
+                    .child(self.label.clone()),
+            )
     }
 }

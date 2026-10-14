@@ -89,7 +89,10 @@ impl View<'_> {
     }
 
     pub fn opt_f32(&self, key: &str) -> Option<f32> {
-        self.props.get(key).and_then(|v| self.table.def(key).and_then(|d| d.ty.coerce(v))).and_then(|v| json_f32(&v))
+        self.props
+            .get(key)
+            .and_then(|v| self.table.def(key).and_then(|d| d.ty.coerce(v)))
+            .and_then(|v| json_f32(&v))
     }
 
     pub fn i32(&self, key: &str) -> i32 {
@@ -109,7 +112,10 @@ impl View<'_> {
     }
 
     pub fn color(&self, key: &str) -> Color {
-        self.json(key).as_str().and_then(Color::from_hex).unwrap_or(Color::TRANSPARENT)
+        self.json(key)
+            .as_str()
+            .and_then(Color::from_hex)
+            .unwrap_or(Color::TRANSPARENT)
     }
 
     pub fn vec2(&self, key: &str) -> Vec2 {
@@ -183,7 +189,11 @@ pub struct EditorState {
 
 impl Default for EditorState {
     fn default() -> Self {
-        Self { hidden: false, locked: false, expanded: true }
+        Self {
+            hidden: false,
+            locked: false,
+            expanded: true,
+        }
     }
 }
 
@@ -229,12 +239,18 @@ impl Node {
 
     /// Typed reads of this node's properties.
     pub fn view(&self) -> View<'_> {
-        View { props: &self.props, table: Table::Kind(self.info()) }
+        View {
+            props: &self.props,
+            table: Table::Kind(self.info()),
+        }
     }
 
     /// Typed reads of this node's slot properties, as `parent`'s child.
     pub fn slot_view(&self, parent: SlotKind) -> View<'_> {
-        View { props: &self.slot, table: Table::Slot(parent) }
+        View {
+            props: &self.slot,
+            table: Table::Slot(parent),
+        }
     }
 
     pub fn set_prop(&mut self, key: &str, value: Json) {
@@ -294,7 +310,10 @@ impl Node {
         let mut obj = Map::new();
         obj.insert("id".into(), json!(self.id.0));
         obj.insert("name".into(), json!(self.name));
-        obj.insert("kind".into(), json!(self.unknown_kind.as_deref().unwrap_or(self.kind.key())));
+        obj.insert(
+            "kind".into(),
+            json!(self.unknown_kind.as_deref().unwrap_or(self.kind.key())),
+        );
         if !self.props.is_empty() {
             obj.insert("props".into(), self.props.to_json());
         }
@@ -309,7 +328,13 @@ impl Node {
             if !instance.overrides.is_empty() {
                 obj.insert(
                     "overrides".into(),
-                    Json::Object(instance.overrides.iter().map(|(k, v)| (k.0.to_string(), v.to_json())).collect()),
+                    Json::Object(
+                        instance
+                            .overrides
+                            .iter()
+                            .map(|(k, v)| (k.0.to_string(), v.to_json()))
+                            .collect(),
+                    ),
                 );
             }
         }
@@ -330,7 +355,10 @@ impl Node {
             obj.insert("editor".into(), Json::Object(editor));
         }
         if !self.children.is_empty() {
-            obj.insert("children".into(), Json::Array(self.children.iter().map(Node::to_json).collect()));
+            obj.insert(
+                "children".into(),
+                Json::Array(self.children.iter().map(Node::to_json).collect()),
+            );
         }
         for (k, v) in &self.extra {
             obj.entry(k.clone()).or_insert_with(|| v.clone());
@@ -343,51 +371,99 @@ impl Node {
     /// `None` when `value` isn't a node at all.
     pub fn from_json(value: &Json, parent_slot: SlotKind, notes: &mut Vec<String>) -> Option<Node> {
         let obj = value.as_object()?;
-        let name = obj.get("name").and_then(Json::as_str).unwrap_or("").to_string();
+        let name = obj
+            .get("name")
+            .and_then(Json::as_str)
+            .unwrap_or("")
+            .to_string();
         let kind_key = obj.get("kind").and_then(Json::as_str).unwrap_or("");
         let (kind, unknown_kind) = match Kind::from_key(kind_key) {
             Some(kind) => (kind, None),
             None => {
-                notes.push(format!("`{name}` has the unknown kind `{kind_key}`; it is kept but not drawn"));
+                notes.push(format!(
+                    "`{name}` has the unknown kind `{kind_key}`; it is kept but not drawn"
+                ));
                 (Kind::Unknown, Some(kind_key.to_string()))
             }
         };
-        let id = obj.get("id").and_then(Json::as_u64).map_or(NodeId(0), |n| NodeId(n as u32));
+        let id = obj
+            .get("id")
+            .and_then(Json::as_u64)
+            .map_or(NodeId(0), |n| NodeId(n as u32));
         let mut node = Node::new(id, name, kind);
         node.unknown_kind = unknown_kind;
 
-        node.props = read_props(obj.get("props"), Table::Kind(kind.info()), &node.name, notes);
+        node.props = read_props(
+            obj.get("props"),
+            Table::Kind(kind.info()),
+            &node.name,
+            notes,
+        );
         node.slot = read_props(obj.get("slot"), Table::Slot(parent_slot), &node.name, notes);
 
         if kind == Kind::Instance {
-            match obj.get("widget").and_then(Json::as_str).and_then(WidgetId::parse) {
+            match obj
+                .get("widget")
+                .and_then(Json::as_str)
+                .and_then(WidgetId::parse)
+            {
                 Some(widget) => {
                     let overrides = obj
                         .get("overrides")
                         .and_then(Json::as_object)
-                        .map(|o| o.iter().filter_map(|(k, v)| Some((ParamId(k.parse().ok()?), Arg::from_json(v)))).collect())
+                        .map(|o| {
+                            o.iter()
+                                .filter_map(|(k, v)| {
+                                    Some((ParamId(k.parse().ok()?), Arg::from_json(v)))
+                                })
+                                .collect()
+                        })
                         .unwrap_or_default();
                     node.instance = Some(Instance {
                         widget,
-                        name_hint: obj.get("widget_name").and_then(Json::as_str).unwrap_or("").to_string(),
+                        name_hint: obj
+                            .get("widget_name")
+                            .and_then(Json::as_str)
+                            .unwrap_or("")
+                            .to_string(),
                         overrides,
                     });
                 }
                 None => {
-                    notes.push(format!("`{}` refers to a widget with no valid id; it will show as missing", node.name));
+                    notes.push(format!(
+                        "`{}` refers to a widget with no valid id; it will show as missing",
+                        node.name
+                    ));
                     node.instance = Some(Instance {
-                        widget: WidgetId::parse("00000000-0000-0000-0000-000000000000").expect("nil uuid parses"),
-                        name_hint: obj.get("widget_name").and_then(Json::as_str).unwrap_or("").to_string(),
+                        widget: WidgetId::parse("00000000-0000-0000-0000-000000000000")
+                            .expect("nil uuid parses"),
+                        name_hint: obj
+                            .get("widget_name")
+                            .and_then(Json::as_str)
+                            .unwrap_or("")
+                            .to_string(),
                         overrides: BTreeMap::new(),
                     });
                 }
             }
         }
-        node.for_slot = obj.get("for_slot").and_then(Json::as_str).map(str::to_string);
+        node.for_slot = obj
+            .get("for_slot")
+            .and_then(Json::as_str)
+            .map(str::to_string);
         if let Some(editor) = obj.get("editor").and_then(Json::as_object) {
-            node.editor.hidden = editor.get("hidden").and_then(Json::as_bool).unwrap_or(false);
-            node.editor.locked = editor.get("locked").and_then(Json::as_bool).unwrap_or(false);
-            node.editor.expanded = editor.get("expanded").and_then(Json::as_bool).unwrap_or(true);
+            node.editor.hidden = editor
+                .get("hidden")
+                .and_then(Json::as_bool)
+                .unwrap_or(false);
+            node.editor.locked = editor
+                .get("locked")
+                .and_then(Json::as_bool)
+                .unwrap_or(false);
+            node.editor.expanded = editor
+                .get("expanded")
+                .and_then(Json::as_bool)
+                .unwrap_or(true);
         }
 
         let child_slot = kind.info().slot;
@@ -395,21 +471,42 @@ impl Node {
             for child in children {
                 match Node::from_json(child, child_slot, notes) {
                     Some(child) => node.children.push(child),
-                    None => notes.push(format!("skipped an entry under `{}` that isn't a widget node", node.name)),
+                    None => notes.push(format!(
+                        "skipped an entry under `{}` that isn't a widget node",
+                        node.name
+                    )),
                 }
             }
         }
 
         const KNOWN: [&str; 13] = [
-            "id", "name", "kind", "props", "slot", "children", "widget", "widget_name", "overrides", "for_slot", "editor", "extra", "_",
+            "id",
+            "name",
+            "kind",
+            "props",
+            "slot",
+            "children",
+            "widget",
+            "widget_name",
+            "overrides",
+            "for_slot",
+            "editor",
+            "extra",
+            "_",
         ];
-        node.extra = obj.iter().filter(|(k, _)| !KNOWN.contains(&k.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect();
+        node.extra = obj
+            .iter()
+            .filter(|(k, _)| !KNOWN.contains(&k.as_str()))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
         Some(node)
     }
 }
 
 fn read_props(value: Option<&Json>, table: Table, owner: &str, notes: &mut Vec<String>) -> Props {
-    let Some(obj) = value.and_then(Json::as_object) else { return Props::default() };
+    let Some(obj) = value.and_then(Json::as_object) else {
+        return Props::default();
+    };
     let mut props = Props::default();
     for (key, raw) in obj {
         match table.def(key) {
@@ -418,7 +515,10 @@ fn read_props(value: Option<&Json>, table: Table, owner: &str, notes: &mut Vec<S
                 Some(valid) => {
                     props.0.insert(key.clone(), valid);
                 }
-                None => notes.push(format!("`{owner}`: {} had an invalid value and was reset", def.label)),
+                None => notes.push(format!(
+                    "`{owner}`: {} had an invalid value and was reset",
+                    def.label
+                )),
             },
             // Not ours to interpret; keep it for the version that wrote it.
             None => {
@@ -460,9 +560,15 @@ mod tests {
     #[test]
     fn slot_values_read_against_the_parents_slot_kind() {
         let mut node = Node::new(NodeId(1), "T", Kind::Text);
-        assert_eq!(node.slot_view(SlotKind::Canvas).quad("offsets"), [0.0, 0.0, 100.0, 30.0]);
+        assert_eq!(
+            node.slot_view(SlotKind::Canvas).quad("offsets"),
+            [0.0, 0.0, 100.0, 30.0]
+        );
         node.set_slot(SlotKind::Canvas, "offsets", json!([5.0, 6.0, 7.0, 8.0]));
-        assert_eq!(node.slot_view(SlotKind::Canvas).quad("offsets"), [5.0, 6.0, 7.0, 8.0]);
+        assert_eq!(
+            node.slot_view(SlotKind::Canvas).quad("offsets"),
+            [5.0, 6.0, 7.0, 8.0]
+        );
         assert_eq!(node.slot_view(SlotKind::Box).choice("h_align"), "fill");
     }
 
@@ -499,7 +605,8 @@ mod tests {
 
     #[test]
     fn unknown_kinds_survive_a_round_trip() {
-        let (node, notes) = parse(json!({ "id": 1, "name": "X", "kind": "hologram", "props": { "q": 1 } }));
+        let (node, notes) =
+            parse(json!({ "id": 1, "name": "X", "kind": "hologram", "props": { "q": 1 } }));
         assert_eq!(node.kind, Kind::Unknown);
         assert_eq!(notes.len(), 1);
         assert_eq!(node.to_json()["kind"], json!("hologram"));

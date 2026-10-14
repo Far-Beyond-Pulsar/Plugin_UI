@@ -78,9 +78,12 @@ impl EditorPluginEditor for UiEditorPlugin {
     fn register_editors(&'static self, registry: &mut EditorFactoryRegistry) {
         // A dynamically loaded plugin gets the host's undo service through
         // the settings snapshot, so every view of a file shares one history.
-        registry.register_fn_with_settings(EditorId::new(editor::EDITOR_ID), |path, settings, window, cx| {
-            Self::create_editor(path, Some(&settings.services().undo), window, cx)
-        });
+        registry.register_fn_with_settings(
+            EditorId::new(editor::EDITOR_ID),
+            |path, settings, window, cx| {
+                Self::create_editor(path, Some(&settings.services().undo), window, cx)
+            },
+        );
     }
 }
 

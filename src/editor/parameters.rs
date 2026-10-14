@@ -42,10 +42,20 @@ impl ParametersPanel {
     pub fn new(ctx: Ctx, _window: &mut Window, cx: &mut Context<Self>) -> Self {
         let subscriptions = vec![cx.observe(&ctx.doc, |_, _, cx| cx.notify())];
         let fields = Fields::new(ctx.lib.read(cx).root().to_path_buf());
-        Self { ctx, fields, focus_handle: cx.focus_handle(), _subscriptions: subscriptions }
+        Self {
+            ctx,
+            fields,
+            focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
+        }
     }
 
-    fn edit_param(&self, id: ParamId, cx: &mut App, change: impl FnOnce(&mut crate::model::Parameter)) {
+    fn edit_param(
+        &self,
+        id: ParamId,
+        cx: &mut App,
+        change: impl FnOnce(&mut crate::model::Parameter),
+    ) {
         self.ctx.doc.update(cx, |d, cx| {
             d.edit("Edit parameter", Some("parameter"), cx, |w| {
                 if let Some(p) = w.parameters.iter_mut().find(|p| p.id == id) {
@@ -55,7 +65,12 @@ impl ParametersPanel {
         });
     }
 
-    fn row(&mut self, id: ParamId, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+    fn row(
+        &mut self,
+        id: ParamId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let theme = cx.theme().clone();
         let widget = self.ctx.widget(cx).clone();
         let param = widget.parameter(id)?.clone();
@@ -63,7 +78,14 @@ impl ParametersPanel {
             .targets
             .iter()
             .map(|t| match widget.node(t.node) {
-                Some(n) => (t.node, n.name.clone(), n.info().def(&t.prop).map_or(t.prop.clone(), |d| d.label.to_string()), true),
+                Some(n) => (
+                    t.node,
+                    n.name.clone(),
+                    n.info()
+                        .def(&t.prop)
+                        .map_or(t.prop.clone(), |d| d.label.to_string()),
+                    true,
+                ),
                 None => (t.node, "(deleted)".to_string(), t.prop.clone(), false),
             })
             .collect();
@@ -89,13 +111,20 @@ impl ParametersPanel {
             false,
             "Description (shown to whoever uses this widget)",
             &param.description,
-            move |this, cx| this.ctx.widget(cx).parameter(id).map(|p| p.description.clone()),
+            move |this, cx| {
+                this.ctx
+                    .widget(cx)
+                    .parameter(id)
+                    .map(|p| p.description.clone())
+            },
             move |this, text, cx| this.edit_param(id, cx, |p| p.description = text),
             window,
             cx,
         );
 
-        let get = move |this: &Self, cx: &App| this.ctx.widget(cx).parameter(id).map(|p| p.default.clone());
+        let get = move |this: &Self, cx: &App| {
+            this.ctx.widget(cx).parameter(id).map(|p| p.default.clone())
+        };
         let set = move |this: &mut Self, value: Json, cx: &mut Context<Self>| {
             this.edit_param(id, cx, |p| {
                 if let Some(v) = p.class.coerce(&value) {
@@ -103,23 +132,51 @@ impl ParametersPanel {
                 }
             })
         };
-        let editor = value_editor(&mut self.fields, &format!("pv:{}", id.0), type_for_class(class), &param.default, false, get, set, window, cx);
+        let editor = value_editor(
+            &mut self.fields,
+            &format!("pv:{}", id.0),
+            type_for_class(class),
+            &param.default,
+            false,
+            get,
+            set,
+            window,
+            cx,
+        );
 
         let chips: Vec<AnyElement> = targets
             .into_iter()
             .map(|(node, node_name, prop, ok)| {
                 let ctx = self.ctx.clone();
                 let ctx2 = self.ctx.clone();
-                let prop_key = param.targets.iter().find(|t| t.node == node && widget.node(t.node).and_then(|n| n.info().def(&t.prop)).is_some_and(|d| d.label == prop || t.prop == prop)).map(|t| t.prop.clone()).unwrap_or_default();
+                let prop_key = param
+                    .targets
+                    .iter()
+                    .find(|t| {
+                        t.node == node
+                            && widget
+                                .node(t.node)
+                                .and_then(|n| n.info().def(&t.prop))
+                                .is_some_and(|d| d.label == prop || t.prop == prop)
+                    })
+                    .map(|t| t.prop.clone())
+                    .unwrap_or_default();
                 h_flex()
                     .gap_0p5()
                     .items_center()
                     .pl_1p5()
                     .rounded(px(5.0))
-                    .bg(if ok { theme.info.opacity(0.14) } else { theme.danger.opacity(0.18) })
+                    .bg(if ok {
+                        theme.info.opacity(0.14)
+                    } else {
+                        theme.danger.opacity(0.18)
+                    })
                     .child(
                         div()
-                            .id(SharedString::from(format!("target-{}-{}-{prop_key}", id.0, node.0)))
+                            .id(SharedString::from(format!(
+                                "target-{}-{}-{prop_key}",
+                                id.0, node.0
+                            )))
                             .text_xs()
                             .text_color(theme.foreground)
                             .cursor_pointer()
@@ -127,12 +184,15 @@ impl ParametersPanel {
                             .on_click(move |_, _, cx| ctx.select(vec![node], cx)),
                     )
                     .child(
-                        Button::new(SharedString::from(format!("untarget-{}-{}-{prop_key}", id.0, node.0)))
-                            .icon(IconName::Close)
-                            .ghost()
-                            .xsmall()
-                            .tooltip("Stop driving this property")
-                            .on_click(move |_, _, cx| ctx2.unlink_property(node, &prop_key, cx)),
+                        Button::new(SharedString::from(format!(
+                            "untarget-{}-{}-{prop_key}",
+                            id.0, node.0
+                        )))
+                        .icon(IconName::Close)
+                        .ghost()
+                        .xsmall()
+                        .tooltip("Stop driving this property")
+                        .on_click(move |_, _, cx| ctx2.unlink_property(node, &prop_key, cx)),
                     )
                     .into_any_element()
             })
@@ -174,21 +234,34 @@ impl ParametersPanel {
 impl Render for ParametersPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
-        let ids: Vec<ParamId> = self.ctx.widget(cx).parameters.iter().map(|p| p.id).collect();
-        let rows: Vec<AnyElement> = ids.into_iter().filter_map(|id| self.row(id, window, cx)).collect();
+        let ids: Vec<ParamId> = self
+            .ctx
+            .widget(cx)
+            .parameters
+            .iter()
+            .map(|p| p.id)
+            .collect();
+        let rows: Vec<AnyElement> = ids
+            .into_iter()
+            .filter_map(|id| self.row(id, window, cx))
+            .collect();
         let empty = rows.is_empty();
 
         let ctx = self.ctx.clone();
-        let add = Button::new("add-parameter").icon(IconName::Plus).label("Add").small().popup_menu(move |menu, _, _| {
-            let mut menu = menu;
-            for class in CLASSES {
-                let c = ctx.clone();
-                menu = menu.menu_handler(class.label(), move |_, cx| {
-                    c.add_parameter("Parameter", class, cx);
-                });
-            }
-            menu
-        });
+        let add = Button::new("add-parameter")
+            .icon(IconName::Plus)
+            .label("Add")
+            .small()
+            .popup_menu(move |menu, _, _| {
+                let mut menu = menu;
+                for class in CLASSES {
+                    let c = ctx.clone();
+                    menu = menu.menu_handler(class.label(), move |_, cx| {
+                        c.add_parameter("Parameter", class, cx);
+                    });
+                }
+                menu
+            });
 
         v_flex()
             .size_full()

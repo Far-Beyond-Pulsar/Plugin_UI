@@ -28,7 +28,11 @@ fn align_icon(kind: AlignKind) -> IconName {
 }
 
 impl DesignerPanel {
-    pub(super) fn render_toolbar(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    pub(super) fn render_toolbar(
+        &self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let view = self.ctx.view.read(cx);
         let widget = self.ctx.widget(cx);
@@ -36,7 +40,13 @@ impl DesignerPanel {
         let screen_label = view.screen_label(widget);
         let dpi = view.dpi;
         let state = view.state;
-        let (grid, snap, outlines, safe, placeholders) = (view.show_grid, view.snap, view.outlines, view.safe_zone, view.placeholders);
+        let (grid, snap, outlines, safe, placeholders) = (
+            view.show_grid,
+            view.snap,
+            view.outlines,
+            view.safe_zone,
+            view.placeholders,
+        );
         let canvas_selected = self
             .ctx
             .selected(cx)
@@ -45,7 +55,11 @@ impl DesignerPanel {
             .count();
 
         let ctx = self.ctx.clone();
-        let toggle = |id: &'static str, icon: IconName, tip: &'static str, on: bool, f: fn(&mut super::super::state::View)| {
+        let toggle = |id: &'static str,
+                      icon: IconName,
+                      tip: &'static str,
+                      on: bool,
+                      f: fn(&mut super::super::state::View)| {
             let ctx = ctx.clone();
             Button::new(id)
                 .icon(icon)
@@ -93,7 +107,14 @@ impl DesignerPanel {
             .border_1()
             .border_color(theme.border)
             .shadow_md()
-            .child(Button::new("zoom-out").icon(IconName::ZoomOut).ghost().small().tooltip("Zoom out").on_click(move |_, _, cx| zo(1.0 / 1.25, cx)))
+            .child(
+                Button::new("zoom-out")
+                    .icon(IconName::ZoomOut)
+                    .ghost()
+                    .small()
+                    .tooltip("Zoom out")
+                    .on_click(move |_, _, cx| zo(1.0 / 1.25, cx)),
+            )
             .child(
                 Button::new("zoom-reset")
                     .label(format!("{}%", (zoom * 100.0).round()))
@@ -104,7 +125,14 @@ impl DesignerPanel {
                         zr(1.0 / zoom.max(0.01), cx);
                     }),
             )
-            .child(Button::new("zoom-in").icon(IconName::ZoomIn).ghost().small().tooltip("Zoom in").on_click(move |_, _, cx| zi(1.25, cx)))
+            .child(
+                Button::new("zoom-in")
+                    .icon(IconName::ZoomIn)
+                    .ghost()
+                    .small()
+                    .tooltip("Zoom in")
+                    .on_click(move |_, _, cx| zi(1.25, cx)),
+            )
             .child(
                 Button::new("zoom-fit")
                     .icon(IconName::Maximize)
@@ -192,13 +220,41 @@ impl DesignerPanel {
                     }),
             )
             .child(toolbar_divider(cx))
-            .child(toggle("view-grid", IconName::GridPlus, "Show the grid", grid, |v| v.show_grid = !v.show_grid))
-            .child(toggle("view-snap", IconName::Pin, "Snap to the grid and to other widgets", snap, |v| v.snap = !v.snap))
-            .child(toggle("view-outlines", IconName::FrameSelect, "Outline every widget", outlines, |v| v.outlines = !v.outlines))
-            .child(toggle("view-safe", IconName::Frame, "Show the title-safe and action-safe areas", safe, |v| v.safe_zone = !v.safe_zone))
-            .child(toggle("view-placeholders", IconName::PlusSquareDashed, "Show stand-ins for empty slots and missing widgets", placeholders, |v| {
-                v.placeholders = !v.placeholders
-            }))
+            .child(toggle(
+                "view-grid",
+                IconName::GridPlus,
+                "Show the grid",
+                grid,
+                |v| v.show_grid = !v.show_grid,
+            ))
+            .child(toggle(
+                "view-snap",
+                IconName::Pin,
+                "Snap to the grid and to other widgets",
+                snap,
+                |v| v.snap = !v.snap,
+            ))
+            .child(toggle(
+                "view-outlines",
+                IconName::FrameSelect,
+                "Outline every widget",
+                outlines,
+                |v| v.outlines = !v.outlines,
+            ))
+            .child(toggle(
+                "view-safe",
+                IconName::Frame,
+                "Show the title-safe and action-safe areas",
+                safe,
+                |v| v.safe_zone = !v.safe_zone,
+            ))
+            .child(toggle(
+                "view-placeholders",
+                IconName::PlusSquareDashed,
+                "Show stand-ins for empty slots and missing widgets",
+                placeholders,
+                |v| v.placeholders = !v.placeholders,
+            ))
             .when(canvas_selected >= 2, |bar| {
                 let mut bar = bar.child(toolbar_divider(cx));
                 for kind in AlignKind::ALL {
@@ -233,7 +289,9 @@ impl DesignerPanel {
                 )
             })
             .child(div().flex_1())
-            .when(self.gesture.is_some() && self.space_down, |bar| bar.child(Tag::info().small().child("Panning")))
+            .when(self.gesture.is_some() && self.space_down, |bar| {
+                bar.child(Tag::info().small().child("Panning"))
+            })
     }
 
     /// Pointer position, selection and the last message, along the bottom.

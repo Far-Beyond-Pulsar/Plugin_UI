@@ -81,15 +81,42 @@ pub struct ScreenPreset {
 }
 
 pub const SCREEN_PRESETS: [ScreenPreset; 9] = [
-    ScreenPreset { name: "1920 \u{d7} 1080 (Full HD)", size: Vec2::new(1920.0, 1080.0) },
-    ScreenPreset { name: "2560 \u{d7} 1440 (QHD)", size: Vec2::new(2560.0, 1440.0) },
-    ScreenPreset { name: "3840 \u{d7} 2160 (4K)", size: Vec2::new(3840.0, 2160.0) },
-    ScreenPreset { name: "1280 \u{d7} 720 (HD)", size: Vec2::new(1280.0, 720.0) },
-    ScreenPreset { name: "1366 \u{d7} 768 (Laptop)", size: Vec2::new(1366.0, 768.0) },
-    ScreenPreset { name: "1024 \u{d7} 768 (4:3)", size: Vec2::new(1024.0, 768.0) },
-    ScreenPreset { name: "2436 \u{d7} 1125 (Phone, landscape)", size: Vec2::new(2436.0, 1125.0) },
-    ScreenPreset { name: "1125 \u{d7} 2436 (Phone, portrait)", size: Vec2::new(1125.0, 2436.0) },
-    ScreenPreset { name: "800 \u{d7} 600", size: Vec2::new(800.0, 600.0) },
+    ScreenPreset {
+        name: "1920 \u{d7} 1080 (Full HD)",
+        size: Vec2::new(1920.0, 1080.0),
+    },
+    ScreenPreset {
+        name: "2560 \u{d7} 1440 (QHD)",
+        size: Vec2::new(2560.0, 1440.0),
+    },
+    ScreenPreset {
+        name: "3840 \u{d7} 2160 (4K)",
+        size: Vec2::new(3840.0, 2160.0),
+    },
+    ScreenPreset {
+        name: "1280 \u{d7} 720 (HD)",
+        size: Vec2::new(1280.0, 720.0),
+    },
+    ScreenPreset {
+        name: "1366 \u{d7} 768 (Laptop)",
+        size: Vec2::new(1366.0, 768.0),
+    },
+    ScreenPreset {
+        name: "1024 \u{d7} 768 (4:3)",
+        size: Vec2::new(1024.0, 768.0),
+    },
+    ScreenPreset {
+        name: "2436 \u{d7} 1125 (Phone, landscape)",
+        size: Vec2::new(2436.0, 1125.0),
+    },
+    ScreenPreset {
+        name: "1125 \u{d7} 2436 (Phone, portrait)",
+        size: Vec2::new(1125.0, 2436.0),
+    },
+    ScreenPreset {
+        name: "800 \u{d7} 600",
+        size: Vec2::new(800.0, 600.0),
+    },
 ];
 
 /// The size the widget is previewed at.
@@ -168,7 +195,9 @@ impl View {
         let s = self.screen_size(widget);
         let name = match self.screen {
             Screen::Design => "Design size".to_string(),
-            Screen::Preset(i) => SCREEN_PRESETS.get(i).map_or("Screen".to_string(), |p| p.name.to_string()),
+            Screen::Preset(i) => SCREEN_PRESETS
+                .get(i)
+                .map_or("Screen".to_string(), |p| p.name.to_string()),
         };
         if matches!(self.screen, Screen::Preset(_)) {
             name
@@ -188,30 +217,48 @@ impl View {
         let widget_point = self.to_widget(anchor);
         self.zoom = zoom;
         let scale = self.scale();
-        self.pan = Vec2::new(anchor.x - widget_point.x * scale, anchor.y - widget_point.y * scale);
+        self.pan = Vec2::new(
+            anchor.x - widget_point.x * scale,
+            anchor.y - widget_point.y * scale,
+        );
         self.auto_fit = false;
     }
 
     /// Fit `content` (in widget pixels) into a canvas of `canvas` pixels with `margin` around.
     pub fn fit(&mut self, content: Vec2, canvas: Vec2, margin: f32) {
-        if content.x <= 0.0 || content.y <= 0.0 || canvas.x <= margin * 2.0 || canvas.y <= margin * 2.0 {
+        if content.x <= 0.0
+            || content.y <= 0.0
+            || canvas.x <= margin * 2.0
+            || canvas.y <= margin * 2.0
+        {
             return;
         }
-        let zoom = ((canvas.x - margin * 2.0) / content.x).min((canvas.y - margin * 2.0) / content.y).clamp(MIN_ZOOM, MAX_ZOOM);
+        let zoom = ((canvas.x - margin * 2.0) / content.x)
+            .min((canvas.y - margin * 2.0) / content.y)
+            .clamp(MIN_ZOOM, MAX_ZOOM);
         self.zoom = zoom;
-        self.pan = Vec2::new((canvas.x - content.x * zoom) * 0.5, (canvas.y - content.y * zoom) * 0.5);
+        self.pan = Vec2::new(
+            (canvas.x - content.x * zoom) * 0.5,
+            (canvas.y - content.y * zoom) * 0.5,
+        );
     }
 
     /// Canvas pixel to layout space.
     pub fn to_widget(&self, canvas_point: Vec2) -> Vec2 {
         let scale = self.scale();
-        Vec2::new((canvas_point.x - self.pan.x) / scale, (canvas_point.y - self.pan.y) / scale)
+        Vec2::new(
+            (canvas_point.x - self.pan.x) / scale,
+            (canvas_point.y - self.pan.y) / scale,
+        )
     }
 
     #[cfg(test)]
     pub fn to_canvas(&self, widget_point: Vec2) -> Vec2 {
         let scale = self.scale();
-        Vec2::new(widget_point.x * scale + self.pan.x, widget_point.y * scale + self.pan.y)
+        Vec2::new(
+            widget_point.x * scale + self.pan.x,
+            widget_point.y * scale + self.pan.y,
+        )
     }
 }
 
@@ -264,7 +311,9 @@ impl LibraryModel {
     /// Scan the project again, off the UI thread.
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         let root = self.root.clone();
-        let scan = cx.background_executor().spawn(async move { Library::scan(&root) });
+        let scan = cx
+            .background_executor()
+            .spawn(async move { Library::scan(&root) });
         self.scanning = true;
         self._task = Some(cx.spawn(async move |this, cx| {
             let library = scan.await;
@@ -288,7 +337,11 @@ mod tests {
 
     #[test]
     fn zooming_keeps_the_point_under_the_cursor_fixed() {
-        let mut view = View { zoom: 1.0, pan: Vec2::new(100.0, 50.0), ..Default::default() };
+        let mut view = View {
+            zoom: 1.0,
+            pan: Vec2::new(100.0, 50.0),
+            ..Default::default()
+        };
         let anchor = Vec2::new(400.0, 300.0);
         let before = view.to_widget(anchor);
         view.set_zoom_about(2.5, anchor);
@@ -307,8 +360,14 @@ mod tests {
         let top_left = view.to_canvas(Vec2::ZERO);
         let bottom_right = view.to_canvas(Vec2::new(1920.0, 1080.0));
         assert!((top_left.x - 20.0).abs() < 1e-3);
-        assert!((1000.0 - bottom_right.x - 20.0).abs() < 1e-3, "centred horizontally");
-        assert!((top_left.y - (800.0 - bottom_right.y)).abs() < 1e-3, "centred vertically");
+        assert!(
+            (1000.0 - bottom_right.x - 20.0).abs() < 1e-3,
+            "centred horizontally"
+        );
+        assert!(
+            (top_left.y - (800.0 - bottom_right.y)).abs() < 1e-3,
+            "centred vertically"
+        );
     }
 
     #[test]

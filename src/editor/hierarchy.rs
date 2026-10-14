@@ -68,7 +68,15 @@ impl HierarchyPanel {
                 }
             }),
         ];
-        Self { ctx, search, rename: None, scroll: UniformListScrollHandle::new(), hint: None, focus_handle: cx.focus_handle(), _subscriptions: subscriptions }
+        Self {
+            ctx,
+            search,
+            rename: None,
+            scroll: UniformListScrollHandle::new(),
+            hint: None,
+            focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
+        }
     }
 
     fn rows(&self, cx: &App) -> Vec<Row> {
@@ -81,7 +89,9 @@ impl HierarchyPanel {
         if !query.is_empty() {
             let mut set = HashSet::new();
             widget.root.walk(&mut |n| {
-                if n.name.to_lowercase().contains(&query) || n.info().label.to_lowercase().contains(&query) {
+                if n.name.to_lowercase().contains(&query)
+                    || n.info().label.to_lowercase().contains(&query)
+                {
                     if let Some(path) = widget.path_to(n.id) {
                         set.extend(path);
                     }
@@ -91,14 +101,22 @@ impl HierarchyPanel {
         }
 
         let mut rows = Vec::new();
-        fn visit(node: &crate::model::Node, depth: usize, keep: &Option<HashSet<NodeId>>, library: &crate::library::Library, rows: &mut Vec<Row>) {
+        fn visit(
+            node: &crate::model::Node,
+            depth: usize,
+            keep: &Option<HashSet<NodeId>>,
+            library: &crate::library::Library,
+            rows: &mut Vec<Row>,
+        ) {
             if keep.as_ref().is_some_and(|k| !k.contains(&node.id)) {
                 return;
             }
             let (mut problem, mut detail) = (None, None);
             if let Some(instance) = &node.instance {
                 use crate::model::validate::WidgetSource;
-                detail = library.name(&instance.widget).or_else(|| (!instance.name_hint.is_empty()).then(|| instance.name_hint.clone()));
+                detail = library.name(&instance.widget).or_else(|| {
+                    (!instance.name_hint.is_empty()).then(|| instance.name_hint.clone())
+                });
                 if library.is_ambiguous(&instance.widget) {
                     problem = Some("More than one file has this widget's id".to_string());
                 } else if library.widget(&instance.widget).is_none() {
@@ -129,28 +147,41 @@ impl HierarchyPanel {
     }
 
     pub fn begin_rename(&mut self, id: NodeId, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(name) = self.ctx.widget(cx).node(id).map(|n| n.name.clone()) else { return };
+        let Some(name) = self.ctx.widget(cx).node(id).map(|n| n.name.clone()) else {
+            return;
+        };
         let input = cx.new(|cx| InputState::new(window, cx).default_value(name));
-        cx.subscribe_in(&input, window, move |this: &mut Self, input, event: &InputEvent, _window, cx| match event {
-            InputEvent::PressEnter { .. } => {
-                let text = input.read(cx).value().to_string();
-                this.ctx.rename(id, &text, cx);
-                this.rename = None;
-                cx.notify();
-            }
-            InputEvent::Blur => {
-                this.rename = None;
-                cx.notify();
-            }
-            _ => {}
-        })
+        cx.subscribe_in(
+            &input,
+            window,
+            move |this: &mut Self, input, event: &InputEvent, _window, cx| match event {
+                InputEvent::PressEnter { .. } => {
+                    let text = input.read(cx).value().to_string();
+                    this.ctx.rename(id, &text, cx);
+                    this.rename = None;
+                    cx.notify();
+                }
+                InputEvent::Blur => {
+                    this.rename = None;
+                    cx.notify();
+                }
+                _ => {}
+            },
+        )
         .detach();
         input.update(cx, |i, cx| i.focus(window, cx));
         self.rename = Some((id, input));
         cx.notify();
     }
 
-    fn click(&mut self, id: NodeId, modifiers: Modifiers, clicks: usize, window: &mut Window, cx: &mut Context<Self>) {
+    fn click(
+        &mut self,
+        id: NodeId,
+        modifiers: Modifiers,
+        clicks: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if clicks >= 2 && !modifiers.shift && !modifiers.secondary() {
             self.begin_rename(id, window, cx);
             return;
@@ -166,11 +197,23 @@ impl HierarchyPanel {
     fn spot(&self, row: NodeId, at: Where, cx: &App) -> Option<DropSpot> {
         let widget = self.ctx.widget(cx);
         match at {
-            Where::Inside if widget.can_accept(row).is_ok() => Some(DropSpot { container: row, index: None, at: None }),
+            Where::Inside if widget.can_accept(row).is_ok() => Some(DropSpot {
+                container: row,
+                index: None,
+                at: None,
+            }),
             Where::Inside | Where::After | Where::Before => {
                 let parent = widget.parent_of(row)?;
                 let index = widget.index_in_parent(row)?;
-                Some(DropSpot { container: parent, index: Some(if at == Where::Before { index } else { index + 1 }), at: None })
+                Some(DropSpot {
+                    container: parent,
+                    index: Some(if at == Where::Before {
+                        index
+                    } else {
+                        index + 1
+                    }),
+                    at: None,
+                })
             }
         }
     }
@@ -180,27 +223,49 @@ impl HierarchyPanel {
         let selected = self.ctx.sel.read(cx).contains(row.id);
         let id = row.id;
         let ctx = self.ctx.clone();
-        let renaming = self.rename.as_ref().filter(|(r, _)| *r == id).map(|(_, input)| input.clone());
+        let renaming = self
+            .rename
+            .as_ref()
+            .filter(|(r, _)| *r == id)
+            .map(|(_, input)| input.clone());
         let hint = self.hint.filter(|(h, _)| *h == id).map(|(_, w)| w);
 
         let color = match row.kind {
             Kind::Instance => theme.info,
             Kind::NamedSlot => theme.warning,
-            k if k.info().children != crate::model::schema::Children::None => theme.muted_foreground,
+            k if k.info().children != crate::model::schema::Children::None => {
+                theme.muted_foreground
+            }
             _ => theme.foreground.opacity(0.85),
         };
         let dim = if row.hidden { 0.45 } else { 1.0 };
 
         let label = if let Some(input) = renaming {
-            div().flex_1().min_w_0().child(TextInput::new(&input).xsmall()).into_any_element()
+            div()
+                .flex_1()
+                .min_w_0()
+                .child(TextInput::new(&input).xsmall())
+                .into_any_element()
         } else {
             h_flex()
                 .flex_1()
                 .min_w_0()
                 .gap_1p5()
                 .items_baseline()
-                .child(div().text_sm().text_color(theme.foreground.opacity(dim)).truncate().child(row.name.clone()))
-                .children(row.detail.as_ref().map(|d| div().text_xs().text_color(theme.muted_foreground).truncate().child(format!("\u{2192} {d}"))))
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.foreground.opacity(dim))
+                        .truncate()
+                        .child(row.name.clone()),
+                )
+                .children(row.detail.as_ref().map(|d| {
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .truncate()
+                        .child(format!("\u{2192} {d}"))
+                }))
                 .into_any_element()
         };
 
@@ -239,7 +304,15 @@ impl HierarchyPanel {
                     .justify_center()
                     .rounded(px(3.0))
                     .hover(|s| s.bg(theme.foreground.opacity(0.1)))
-                    .child(Icon::new(if expanded { IconName::ChevronDown } else { IconName::ChevronRight }).size(px(12.0)).text_color(theme.muted_foreground))
+                    .child(
+                        Icon::new(if expanded {
+                            IconName::ChevronDown
+                        } else {
+                            IconName::ChevronRight
+                        })
+                        .size(px(12.0))
+                        .text_color(theme.muted_foreground),
+                    )
                     .on_click(move |_, _, cx| {
                         cx.stop_propagation();
                         ctx.set_expanded(id, !expanded, cx);
@@ -248,14 +321,24 @@ impl HierarchyPanel {
             } else {
                 div().size(px(16.0)).flex_shrink_0().into_any_element()
             })
-            .child(Icon::new(kind_icon(row.kind)).size(px(14.0)).text_color(color.opacity(dim)))
+            .child(
+                Icon::new(kind_icon(row.kind))
+                    .size(px(14.0))
+                    .text_color(color.opacity(dim)),
+            )
             .child(label)
             .children(row.problem.as_ref().map(|p| {
                 let text = p.clone();
                 div()
                     .id(("hierarchy-problem", id.0 as usize))
-                    .child(Icon::new(IconName::TriangleAlert).size(px(13.0)).text_color(theme.danger))
-                    .tooltip(move |window, cx| ui::tooltip::Tooltip::new(text.clone()).build(window, cx))
+                    .child(
+                        Icon::new(IconName::TriangleAlert)
+                            .size(px(13.0))
+                            .text_color(theme.danger),
+                    )
+                    .tooltip(move |window, cx| {
+                        ui::tooltip::Tooltip::new(text.clone()).build(window, cx)
+                    })
             }))
             .child(self.visibility_button(id, row.hidden, cx))
             .child(self.lock_button(id, row.locked, cx))
@@ -270,12 +353,21 @@ impl HierarchyPanel {
                     }
                 }
             })
-            .on_drag(NodeDrag { ids: drag_ids, label: drag_label.clone() }, {
-                let icon = kind_icon(row.kind);
-                move |drag, _, _, cx| {
-                    cx.new(|_| DragGhost { label: drag.label.clone().into(), icon: icon.clone() })
-                }
-            })
+            .on_drag(
+                NodeDrag {
+                    ids: drag_ids,
+                    label: drag_label.clone(),
+                },
+                {
+                    let icon = kind_icon(row.kind);
+                    move |drag, _, _, cx| {
+                        cx.new(|_| DragGhost {
+                            label: drag.label.clone().into(),
+                            icon: icon.clone(),
+                        })
+                    }
+                },
+            )
             .on_drag_move::<NodeDrag>({
                 let weak = weak.clone();
                 move |event, _, cx| set_hint(&weak, id, event.bounds, event.event.position, cx)
@@ -317,14 +409,25 @@ impl HierarchyPanel {
         let base = match hint {
             Some(Where::Before) => base.border_t_2().border_color(theme.info),
             Some(Where::After) => base.border_b_2().border_color(theme.info),
-            Some(Where::Inside) => base.bg(theme.info.opacity(0.18)).border_1().border_color(theme.info),
+            Some(Where::Inside) => base
+                .bg(theme.info.opacity(0.18))
+                .border_1()
+                .border_color(theme.info),
             None => base,
         };
 
-        base.context_menu(move |menu, window, cx| super::menus::node_menu(menu, &ctx_menu, window, cx)).into_any_element()
+        base.context_menu(move |menu, window, cx| {
+            super::menus::node_menu(menu, &ctx_menu, window, cx)
+        })
+        .into_any_element()
     }
 
-    fn visibility_button(&self, id: NodeId, hidden: bool, cx: &mut Context<Self>) -> impl IntoElement {
+    fn visibility_button(
+        &self,
+        id: NodeId,
+        hidden: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let theme = cx.theme().clone();
         let ctx = self.ctx.clone();
         div()
@@ -337,11 +440,26 @@ impl HierarchyPanel {
             .rounded(px(3.0))
             .hover(|s| s.bg(theme.foreground.opacity(0.1)))
             .child(
-                Icon::new(if hidden { IconName::EyeOff } else { IconName::Eye })
-                    .size(px(13.0))
-                    .text_color(if hidden { theme.warning } else { theme.muted_foreground.opacity(0.5) }),
+                Icon::new(if hidden {
+                    IconName::EyeOff
+                } else {
+                    IconName::Eye
+                })
+                .size(px(13.0))
+                .text_color(if hidden {
+                    theme.warning
+                } else {
+                    theme.muted_foreground.opacity(0.5)
+                }),
             )
-            .tooltip(move |window, cx| ui::tooltip::Tooltip::new(if hidden { "Hidden in the designer" } else { "Hide in the designer" }).build(window, cx))
+            .tooltip(move |window, cx| {
+                ui::tooltip::Tooltip::new(if hidden {
+                    "Hidden in the designer"
+                } else {
+                    "Hide in the designer"
+                })
+                .build(window, cx)
+            })
             .on_click(move |_, _, cx| {
                 cx.stop_propagation();
                 ctx.toggle_hidden(id, cx);
@@ -361,11 +479,26 @@ impl HierarchyPanel {
             .rounded(px(3.0))
             .hover(|s| s.bg(theme.foreground.opacity(0.1)))
             .child(
-                Icon::new(if locked { IconName::Lock } else { IconName::LockSlash })
-                    .size(px(13.0))
-                    .text_color(if locked { theme.warning } else { theme.muted_foreground.opacity(0.35) }),
+                Icon::new(if locked {
+                    IconName::Lock
+                } else {
+                    IconName::LockSlash
+                })
+                .size(px(13.0))
+                .text_color(if locked {
+                    theme.warning
+                } else {
+                    theme.muted_foreground.opacity(0.35)
+                }),
             )
-            .tooltip(move |window, cx| ui::tooltip::Tooltip::new(if locked { "Locked: can't be picked in the designer" } else { "Lock in the designer" }).build(window, cx))
+            .tooltip(move |window, cx| {
+                ui::tooltip::Tooltip::new(if locked {
+                    "Locked: can't be picked in the designer"
+                } else {
+                    "Lock in the designer"
+                })
+                .build(window, cx)
+            })
             .on_click(move |_, _, cx| {
                 cx.stop_propagation();
                 ctx.toggle_locked(id, cx);
@@ -374,7 +507,13 @@ impl HierarchyPanel {
 }
 
 /// Record which part of row `id` the pointer is over during a drag.
-fn set_hint(weak: &WeakEntity<HierarchyPanel>, id: NodeId, bounds: Bounds<Pixels>, position: Point<Pixels>, cx: &mut App) {
+fn set_hint(
+    weak: &WeakEntity<HierarchyPanel>,
+    id: NodeId,
+    bounds: Bounds<Pixels>,
+    position: Point<Pixels>,
+    cx: &mut App,
+) {
     // Every row hears every drag movement; only the one under the pointer may answer.
     if !bounds.contains(&position) {
         return;
@@ -406,14 +545,25 @@ impl Render for HierarchyPanel {
         let _ = window;
 
         let body = if count == 0 {
-            div().size_full().child(empty_message(IconName::Search, "Nothing matches", "No widget has that name", cx)).into_any_element()
+            div()
+                .size_full()
+                .child(empty_message(
+                    IconName::Search,
+                    "Nothing matches",
+                    "No widget has that name",
+                    cx,
+                ))
+                .into_any_element()
         } else {
             uniform_list(
                 "hierarchy-list",
                 count,
                 cx.processor(move |this, range: std::ops::Range<usize>, _window, cx| {
                     let rows = this.rows(cx);
-                    range.filter_map(|ix| rows.get(ix).cloned()).map(|row| this.render_row(&row, cx)).collect::<Vec<_>>()
+                    range
+                        .filter_map(|ix| rows.get(ix).cloned())
+                        .map(|row| this.render_row(&row, cx))
+                        .collect::<Vec<_>>()
                 }),
             )
             .track_scroll(&self.scroll)
@@ -441,14 +591,37 @@ impl Render for HierarchyPanel {
             .child(panel_header(
                 IconName::ListSelect,
                 "Hierarchy",
-                Some(div().text_xs().text_color(theme.muted_foreground).child(if searching { format!("{count} of {total}") } else { format!("{total} widgets") }).into_any_element()),
+                Some(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(if searching {
+                            format!("{count} of {total}")
+                        } else {
+                            format!("{total} widgets")
+                        })
+                        .into_any_element(),
+                ),
                 cx,
             ))
-            .child(div().px_2().py_1p5().border_b_1().border_color(theme.border.opacity(0.6)).child(TextInput::new(&self.search).small().cleanable()))
-            .child(div().flex_1().min_h_0().on_mouse_down(MouseButton::Left, move |_, _, cx| {
-                // Clicking the gaps below the rows clears the selection.
-                let _ = &ctx;
-                let _ = cx;
-            }).child(body))
+            .child(
+                div()
+                    .px_2()
+                    .py_1p5()
+                    .border_b_1()
+                    .border_color(theme.border.opacity(0.6))
+                    .child(TextInput::new(&self.search).small().cleanable()),
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                        // Clicking the gaps below the rows clears the selection.
+                        let _ = &ctx;
+                        let _ = cx;
+                    })
+                    .child(body),
+            )
     }
 }

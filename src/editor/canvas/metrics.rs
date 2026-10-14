@@ -22,12 +22,24 @@ pub fn font_for(family: &SharedString, weight: &str, italic: bool) -> Font {
         features: FontFeatures::default(),
         fallbacks: None,
         weight: font_weight(weight),
-        style: if italic { FontStyle::Italic } else { FontStyle::Normal },
+        style: if italic {
+            FontStyle::Italic
+        } else {
+            FontStyle::Normal
+        },
     }
 }
 
 fn run(len: usize, font: Font, color: Hsla) -> TextRun {
-    TextRun { len, font, color: color.into(), background_color: None, underline: None, strikethrough: None, letter_spacing: None }
+    TextRun {
+        len,
+        font,
+        color: color.into(),
+        background_color: None,
+        underline: None,
+        strikethrough: None,
+        letter_spacing: None,
+    }
 }
 
 /// Measures with the window's text system.
@@ -88,7 +100,13 @@ pub fn paint_text(
     let font = font_for(family, weight, italic);
     let runs = [run(text.len(), font, color)];
     let wrap_width = wrap.then_some(bounds.size.width);
-    let Ok(lines) = window.text_system().shape_text(SharedString::from(text.to_string()), px(size), &runs, wrap_width, None) else {
+    let Ok(lines) = window.text_system().shape_text(
+        SharedString::from(text.to_string()),
+        px(size),
+        &runs,
+        wrap_width,
+        None,
+    ) else {
         return;
     };
     let line_height = px(size * line_height);

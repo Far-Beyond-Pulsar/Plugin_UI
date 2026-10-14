@@ -35,7 +35,14 @@ pub struct Parameter {
 
 impl Parameter {
     pub fn new(id: ParamId, name: impl Into<String>, class: ValueClass) -> Self {
-        Self { id, name: name.into(), class, default: class.default_value(), description: String::new(), targets: Vec::new() }
+        Self {
+            id,
+            name: name.into(),
+            class,
+            default: class.default_value(),
+            description: String::new(),
+            targets: Vec::new(),
+        }
     }
 
     fn to_json(&self) -> Json {
@@ -50,7 +57,12 @@ impl Parameter {
         if !self.targets.is_empty() {
             obj.insert(
                 "targets".into(),
-                Json::Array(self.targets.iter().map(|t| json!({ "node": t.node.0, "prop": t.prop })).collect()),
+                Json::Array(
+                    self.targets
+                        .iter()
+                        .map(|t| json!({ "node": t.node.0, "prop": t.prop }))
+                        .collect(),
+                ),
             );
         }
         Json::Object(obj)
@@ -59,10 +71,16 @@ impl Parameter {
     fn from_json(value: &Json, notes: &mut Vec<String>) -> Option<Parameter> {
         let obj = value.as_object()?;
         let name = obj.get("name").and_then(Json::as_str)?.to_string();
-        let class = match obj.get("type").and_then(Json::as_str).and_then(ValueClass::from_key) {
+        let class = match obj
+            .get("type")
+            .and_then(Json::as_str)
+            .and_then(ValueClass::from_key)
+        {
             Some(class) => class,
             None => {
-                notes.push(format!("parameter `{name}` has an unknown type and was read as text"));
+                notes.push(format!(
+                    "parameter `{name}` has an unknown type and was read as text"
+                ));
                 ValueClass::Text
             }
         };
@@ -70,7 +88,9 @@ impl Parameter {
             Some(d) => d,
             None => {
                 if obj.contains_key("default") {
-                    notes.push(format!("parameter `{name}` had an invalid default and was reset"));
+                    notes.push(format!(
+                        "parameter `{name}` had an invalid default and was reset"
+                    ));
                 }
                 class.default_value()
             }
@@ -94,7 +114,11 @@ impl Parameter {
             name,
             class,
             default,
-            description: obj.get("description").and_then(Json::as_str).unwrap_or("").to_string(),
+            description: obj
+                .get("description")
+                .and_then(Json::as_str)
+                .unwrap_or("")
+                .to_string(),
             targets,
         })
     }
@@ -198,12 +222,18 @@ impl WidgetAsset {
         let mut obj = Map::new();
         obj.insert("format".into(), json!(FORMAT));
         obj.insert("id".into(), json!(self.id.as_str()));
-        obj.insert("design_size".into(), json!([num(self.design_size.x), num(self.design_size.y)]));
+        obj.insert(
+            "design_size".into(),
+            json!([num(self.design_size.x), num(self.design_size.y)]),
+        );
         if !self.description.is_empty() {
             obj.insert("description".into(), json!(self.description));
         }
         if !self.parameters.is_empty() {
-            obj.insert("parameters".into(), Json::Array(self.parameters.iter().map(Parameter::to_json).collect()));
+            obj.insert(
+                "parameters".into(),
+                Json::Array(self.parameters.iter().map(Parameter::to_json).collect()),
+            );
         }
         obj.insert("next_node_id".into(), json!(self.next_node_id));
         if !self.parameters.is_empty() {
@@ -245,7 +275,9 @@ impl Asset for WidgetAsset {
             return Ok((widget, Vec::new()));
         }
         let value: Json = serde_json::from_str(text).map_err(|e| format!("not valid JSON: {e}"))?;
-        let obj = value.as_object().ok_or_else(|| "the file isn't a widget (expected a JSON object)".to_string())?;
+        let obj = value
+            .as_object()
+            .ok_or_else(|| "the file isn't a widget (expected a JSON object)".to_string())?;
         let mut notes = Vec::new();
 
         if let Some(format) = obj.get("format").and_then(Json::as_u64) {
@@ -254,7 +286,11 @@ impl Asset for WidgetAsset {
             }
         }
 
-        let (id, needs_stamp) = match obj.get("id").and_then(Json::as_str).and_then(WidgetId::parse) {
+        let (id, needs_stamp) = match obj
+            .get("id")
+            .and_then(Json::as_str)
+            .and_then(WidgetId::parse)
+        {
             Some(id) => (id, false),
             None => {
                 notes.push("had no valid id; a new stable id was assigned".to_string());
@@ -268,11 +304,17 @@ impl Asset for WidgetAsset {
             .filter(|s| s[0] >= 1.0 && s[1] >= 1.0)
             .map_or(Self::DEFAULT_SIZE, |s| Vec2::new(s[0], s[1]));
 
-        let root = match obj.get("root").and_then(|r| Node::from_json(r, SlotKind::None, &mut notes)) {
+        let root = match obj
+            .get("root")
+            .and_then(|r| Node::from_json(r, SlotKind::None, &mut notes))
+        {
             Some(root) => root,
             None => {
                 if obj.contains_key("root") {
-                    notes.push("the root node was unusable and was replaced with an empty canvas".to_string());
+                    notes.push(
+                        "the root node was unusable and was replaced with an empty canvas"
+                            .to_string(),
+                    );
                 }
                 Node::new(NodeId(1), "Root", Kind::Canvas)
             }
@@ -281,28 +323,49 @@ impl Asset for WidgetAsset {
         let parameters = obj
             .get("parameters")
             .and_then(Json::as_array)
-            .map(|list| list.iter().filter_map(|p| Parameter::from_json(p, &mut notes)).collect())
+            .map(|list| {
+                list.iter()
+                    .filter_map(|p| Parameter::from_json(p, &mut notes))
+                    .collect()
+            })
             .unwrap_or_default();
 
-        const KNOWN: [&str; 8] =
-            ["format", "id", "design_size", "description", "parameters", "next_node_id", "next_param_id", "root"];
+        const KNOWN: [&str; 8] = [
+            "format",
+            "id",
+            "design_size",
+            "description",
+            "parameters",
+            "next_node_id",
+            "next_param_id",
+            "root",
+        ];
         let mut widget = WidgetAsset {
             id,
             design_size,
-            description: obj.get("description").and_then(Json::as_str).unwrap_or("").to_string(),
+            description: obj
+                .get("description")
+                .and_then(Json::as_str)
+                .unwrap_or("")
+                .to_string(),
             parameters,
             root,
             next_node_id: obj.get("next_node_id").and_then(Json::as_u64).unwrap_or(0) as u32,
             next_param_id: obj.get("next_param_id").and_then(Json::as_u64).unwrap_or(0) as u32,
             needs_stamp,
-            extra: obj.iter().filter(|(k, _)| !KNOWN.contains(&k.as_str())).map(|(k, v)| (k.clone(), v.clone())).collect(),
+            extra: obj
+                .iter()
+                .filter(|(k, _)| !KNOWN.contains(&k.as_str()))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
         };
         widget.repair(&mut notes);
         Ok((widget, notes))
     }
 
     fn to_text(&self) -> String {
-        let mut text = serde_json::to_string_pretty(&self.to_json()).unwrap_or_else(|_| "{}".to_string());
+        let mut text =
+            serde_json::to_string_pretty(&self.to_json()).unwrap_or_else(|_| "{}".to_string());
         text.push('\n');
         text
     }
@@ -337,7 +400,9 @@ impl WidgetAsset {
         visit(&mut self.root, &mut seen, &mut next, &mut reassigned);
         self.next_node_id = next;
         if reassigned > 0 {
-            notes.push(format!("{reassigned} node(s) shared or lacked an id and were given new ones"));
+            notes.push(format!(
+                "{reassigned} node(s) shared or lacked an id and were given new ones"
+            ));
         }
 
         // Nodes need names to be told apart in the hierarchy.
@@ -365,7 +430,9 @@ impl WidgetAsset {
             }
         }
         if renumbered > 0 {
-            notes.push(format!("{renumbered} parameter(s) shared or lacked an id and were given new ones"));
+            notes.push(format!(
+                "{renumbered} parameter(s) shared or lacked an id and were given new ones"
+            ));
         }
 
         // Parameters can't point at nodes that aren't there.
@@ -409,7 +476,10 @@ mod tests {
 
     #[test]
     fn a_file_without_an_id_gets_one_and_says_so() {
-        let (widget, notes) = WidgetAsset::parse(r#"{ "format": 1, "root": { "id": 1, "name": "R", "kind": "canvas" } }"#).unwrap();
+        let (widget, notes) = WidgetAsset::parse(
+            r#"{ "format": 1, "root": { "id": 1, "name": "R", "kind": "canvas" } }"#,
+        )
+        .unwrap();
         assert!(widget.needs_stamp());
         assert!(notes.iter().any(|n| n.contains("stable id")));
     }
@@ -434,11 +504,20 @@ mod tests {
             "parameters": [ { "name": "P", "type": "text", "default": "x", "targets": [ {"node": 99, "prop": "text"} ] } ] }"#;
         let (mut widget, notes) = WidgetAsset::parse(text).unwrap();
         let mut ids = HashSet::new();
-        widget.root.walk(&mut |n| assert!(ids.insert(n.id), "ids are unique"));
-        assert_eq!(widget.root.name, "Canvas Panel", "empty names are filled in");
+        widget
+            .root
+            .walk(&mut |n| assert!(ids.insert(n.id), "ids are unique"));
+        assert_eq!(
+            widget.root.name, "Canvas Panel",
+            "empty names are filled in"
+        );
         assert!(widget.parameters[0].targets.is_empty());
         assert!(notes.len() >= 2, "{notes:?}");
-        assert_eq!(widget.to_json()["future"], json!(1), "unknown top-level fields are kept");
+        assert_eq!(
+            widget.to_json()["future"],
+            json!(1),
+            "unknown top-level fields are kept"
+        );
         let fresh = widget.alloc_id();
         assert!(!ids.contains(&fresh));
     }

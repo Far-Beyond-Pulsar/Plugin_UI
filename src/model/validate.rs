@@ -53,13 +53,34 @@ pub const MAX_COMFORTABLE_DEPTH: usize = 24;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WidgetFix {
-    RenameNode { node: NodeId, name: String },
-    RenameParameter { param: ParamId, name: String },
-    RemoveTarget { param: ParamId, node: NodeId, prop: String },
-    RemoveOverride { node: NodeId, param: ParamId },
-    ResetParameterDefault { param: ParamId },
-    AssignSlot { node: NodeId, slot: Option<String> },
-    UpdateNameHint { node: NodeId, name: String },
+    RenameNode {
+        node: NodeId,
+        name: String,
+    },
+    RenameParameter {
+        param: ParamId,
+        name: String,
+    },
+    RemoveTarget {
+        param: ParamId,
+        node: NodeId,
+        prop: String,
+    },
+    RemoveOverride {
+        node: NodeId,
+        param: ParamId,
+    },
+    ResetParameterDefault {
+        param: ParamId,
+    },
+    AssignSlot {
+        node: NodeId,
+        slot: Option<String>,
+    },
+    UpdateNameHint {
+        node: NodeId,
+        name: String,
+    },
     /// Needs the library; handled by the editor.
     NewWidgetId,
 }
@@ -67,7 +88,9 @@ pub enum WidgetFix {
 impl WidgetFix {
     pub fn label(&self) -> String {
         match self {
-            WidgetFix::RenameNode { name, .. } | WidgetFix::RenameParameter { name, .. } => format!("Rename to {name}"),
+            WidgetFix::RenameNode { name, .. } | WidgetFix::RenameParameter { name, .. } => {
+                format!("Rename to {name}")
+            }
             WidgetFix::RemoveTarget { .. } => "Unlink".to_string(),
             WidgetFix::RemoveOverride { .. } => "Remove value".to_string(),
             WidgetFix::ResetParameterDefault { .. } => "Reset default".to_string(),
@@ -91,7 +114,9 @@ pub fn would_cycle(lib: &dyn WidgetSource, this: &WidgetId, candidate: &WidgetId
         if !seen.insert(id.clone()) {
             continue;
         }
-        let Some(widget) = lib.widget(&id) else { continue };
+        let Some(widget) = lib.widget(&id) else {
+            continue;
+        };
         for dep in widget.dependencies() {
             if &dep == this {
                 return true;
@@ -137,9 +162,16 @@ impl WidgetAsset {
         for (id, name) in dupes {
             let better = self.unique_name(&name);
             issues.push(
-                Issue::new(Severity::Warning, name.clone(), format!("Another widget is also called `{name}`; names should be unique"))
-                    .on(id)
-                    .with_fix(WidgetFix::RenameNode { node: id, name: better }),
+                Issue::new(
+                    Severity::Warning,
+                    name.clone(),
+                    format!("Another widget is also called `{name}`; names should be unique"),
+                )
+                .on(id)
+                .with_fix(WidgetFix::RenameNode {
+                    node: id,
+                    name: better,
+                }),
             );
         }
         let mut slot_names = HashSet::new();
@@ -156,39 +188,81 @@ impl WidgetAsset {
     fn check_structure(&self, issues: &mut Vec<Issue<WidgetFix>>) {
         let depth = self.root.depth();
         if depth > MAX_COMFORTABLE_DEPTH {
-            issues.push(Issue::new(Severity::Warning, self.root.name.clone(), format!("The tree is {depth} levels deep; deep nesting is slow to lay out")));
+            issues.push(Issue::new(
+                Severity::Warning,
+                self.root.name.clone(),
+                format!("The tree is {depth} levels deep; deep nesting is slow to lay out"),
+            ));
         }
         fn visit(node: &Node, parent: Option<&Node>, issues: &mut Vec<Issue<WidgetFix>>) {
             let info = node.info();
             if info.children == Children::One && node.children.len() > 1 {
                 issues.push(
-                    Issue::new(Severity::Error, node.name.clone(), format!("{} holds one widget but has {}", info.label, node.children.len())).on(node.id),
+                    Issue::new(
+                        Severity::Error,
+                        node.name.clone(),
+                        format!(
+                            "{} holds one widget but has {}",
+                            info.label,
+                            node.children.len()
+                        ),
+                    )
+                    .on(node.id),
                 );
             }
             if info.children == Children::None && !node.children.is_empty() {
-                issues.push(Issue::new(Severity::Error, node.name.clone(), format!("{} can't hold widgets", info.label)).on(node.id));
+                issues.push(
+                    Issue::new(
+                        Severity::Error,
+                        node.name.clone(),
+                        format!("{} can't hold widgets", info.label),
+                    )
+                    .on(node.id),
+                );
             }
             match node.kind {
                 Kind::Text if node.view().text("text").is_empty() => {
-                    issues.push(Issue::new(Severity::Info, node.name.clone(), "The text is empty").on(node.id));
+                    issues.push(
+                        Issue::new(Severity::Info, node.name.clone(), "The text is empty")
+                            .on(node.id),
+                    );
                 }
                 Kind::Image if node.view().image("source").is_empty() => {
-                    issues.push(Issue::new(Severity::Info, node.name.clone(), "No image is chosen").on(node.id));
+                    issues.push(
+                        Issue::new(Severity::Info, node.name.clone(), "No image is chosen")
+                            .on(node.id),
+                    );
                 }
                 Kind::Unknown => {
-                    issues.push(Issue::new(Severity::Warning, node.name.clone(), "Made by a newer version; it is kept but can't be shown").on(node.id));
+                    issues.push(
+                        Issue::new(
+                            Severity::Warning,
+                            node.name.clone(),
+                            "Made by a newer version; it is kept but can't be shown",
+                        )
+                        .on(node.id),
+                    );
                 }
                 _ => {}
             }
             if let Some(parent) = parent {
-                if parent.info().slot == SlotKind::Canvas && !node.slot_view(SlotKind::Canvas).bool("auto_size") {
+                if parent.info().slot == SlotKind::Canvas
+                    && !node.slot_view(SlotKind::Canvas).bool("auto_size")
+                {
                     let v = node.slot_view(SlotKind::Canvas);
                     let (amin, amax) = (v.vec2("anchor_min"), v.vec2("anchor_max"));
                     let o = v.quad("offsets");
                     let wide = amin.x != amax.x || o[2] > 0.0;
                     let tall = amin.y != amax.y || o[3] > 0.0;
                     if !wide || !tall {
-                        issues.push(Issue::new(Severity::Warning, node.name.clone(), "It has no size on the canvas, so it can't be seen").on(node.id));
+                        issues.push(
+                            Issue::new(
+                                Severity::Warning,
+                                node.name.clone(),
+                                "It has no size on the canvas, so it can't be seen",
+                            )
+                            .on(node.id),
+                        );
                     }
                 }
             }
@@ -203,9 +277,14 @@ impl WidgetAsset {
         let mut seen = HashSet::new();
         for p in &self.parameters {
             if p.name.trim().is_empty() {
-                issues.push(Issue::new(Severity::Error, format!("Parameter #{}", p.id.0), "A parameter has no name"));
+                issues.push(Issue::new(
+                    Severity::Error,
+                    format!("Parameter #{}", p.id.0),
+                    "A parameter has no name",
+                ));
             } else if !seen.insert(p.name.as_str()) {
-                let taken: HashSet<String> = self.parameters.iter().map(|q| q.name.clone()).collect();
+                let taken: HashSet<String> =
+                    self.parameters.iter().map(|q| q.name.clone()).collect();
                 let mut n = 1;
                 let better = loop {
                     let c = format!("{}_{n}", p.name);
@@ -215,29 +294,54 @@ impl WidgetAsset {
                     n += 1;
                 };
                 issues.push(
-                    Issue::new(Severity::Error, p.name.clone(), "Two parameters share this name")
-                        .with_fix(WidgetFix::RenameParameter { param: p.id, name: better }),
+                    Issue::new(
+                        Severity::Error,
+                        p.name.clone(),
+                        "Two parameters share this name",
+                    )
+                    .with_fix(WidgetFix::RenameParameter {
+                        param: p.id,
+                        name: better,
+                    }),
                 );
             }
             if p.class.coerce(&p.default).is_none() {
                 issues.push(
-                    Issue::new(Severity::Warning, p.name.clone(), "The default value isn't a valid value for the parameter's type")
-                        .with_fix(WidgetFix::ResetParameterDefault { param: p.id }),
+                    Issue::new(
+                        Severity::Warning,
+                        p.name.clone(),
+                        "The default value isn't a valid value for the parameter's type",
+                    )
+                    .with_fix(WidgetFix::ResetParameterDefault { param: p.id }),
                 );
             }
             for t in &p.targets {
                 let problem = match self.node(t.node) {
                     None => Some("drives a widget that no longer exists".to_string()),
                     Some(n) => match n.info().def(&t.prop) {
-                        None => Some(format!("drives `{}` on {}, which has no such property", t.prop, n.name)),
-                        Some(d) if d.ty.class() != p.class => Some(format!("drives `{}` on {}, which is a different type", d.label, n.name)),
+                        None => Some(format!(
+                            "drives `{}` on {}, which has no such property",
+                            t.prop, n.name
+                        )),
+                        Some(d) if d.ty.class() != p.class => Some(format!(
+                            "drives `{}` on {}, which is a different type",
+                            d.label, n.name
+                        )),
                         Some(_) => None,
                     },
                 };
                 if let Some(problem) = problem {
                     issues.push(
-                        Issue::new(Severity::Error, p.name.clone(), format!("This parameter {problem}"))
-                            .with_fix(WidgetFix::RemoveTarget { param: p.id, node: t.node, prop: t.prop.clone() }),
+                        Issue::new(
+                            Severity::Error,
+                            p.name.clone(),
+                            format!("This parameter {problem}"),
+                        )
+                        .with_fix(WidgetFix::RemoveTarget {
+                            param: p.id,
+                            node: t.node,
+                            prop: t.prop.clone(),
+                        }),
                     );
                 }
             }
@@ -262,7 +366,11 @@ impl WidgetAsset {
                 continue;
             }
             let Some(target) = lib.widget(&instance.widget) else {
-                let hint = if instance.name_hint.is_empty() { String::new() } else { format!(" (it was `{}`)", instance.name_hint) };
+                let hint = if instance.name_hint.is_empty() {
+                    String::new()
+                } else {
+                    format!(" (it was `{}`)", instance.name_hint)
+                };
                 issues.push(
                     Issue::new(Severity::Error, subject, format!("The widget this refers to can't be found{hint}; it may have been deleted"))
                         .on(node.id),
@@ -272,9 +380,16 @@ impl WidgetAsset {
             if let Some(name) = lib.name(&instance.widget) {
                 if name != instance.name_hint {
                     issues.push(
-                        Issue::new(Severity::Info, subject.clone(), format!("The widget is now called `{name}`"))
-                            .on(node.id)
-                            .with_fix(WidgetFix::UpdateNameHint { node: node.id, name }),
+                        Issue::new(
+                            Severity::Info,
+                            subject.clone(),
+                            format!("The widget is now called `{name}`"),
+                        )
+                        .on(node.id)
+                        .with_fix(WidgetFix::UpdateNameHint {
+                            node: node.id,
+                            name,
+                        }),
                     );
                 }
             }
@@ -288,20 +403,38 @@ impl WidgetAsset {
             for (param, arg) in &instance.overrides {
                 match target.parameter(*param) {
                     None => issues.push(
-                        Issue::new(Severity::Warning, subject.clone(), "A value is set for a parameter the widget no longer has")
-                            .on(node.id)
-                            .with_fix(WidgetFix::RemoveOverride { node: node.id, param: *param }),
+                        Issue::new(
+                            Severity::Warning,
+                            subject.clone(),
+                            "A value is set for a parameter the widget no longer has",
+                        )
+                        .on(node.id)
+                        .with_fix(WidgetFix::RemoveOverride {
+                            node: node.id,
+                            param: *param,
+                        }),
                     ),
                     Some(p) => {
                         let bad = match arg {
                             Arg::Value(v) => p.class.coerce(v).is_none(),
-                            Arg::Bind(outer) => self.parameter(*outer).is_none_or(|o| o.class != p.class),
+                            Arg::Bind(outer) => {
+                                self.parameter(*outer).is_none_or(|o| o.class != p.class)
+                            }
                         };
                         if bad {
                             issues.push(
-                                Issue::new(Severity::Warning, subject.clone(), format!("The value for `{}` doesn't match its type", p.name))
-                                    .on(node.id)
-                                    .with_fix(WidgetFix::RemoveOverride { node: node.id, param: *param }),
+                                Issue::new(
+                                    Severity::Warning,
+                                    subject.clone(),
+                                    format!("The value for `{}` doesn't match its type", p.name),
+                                )
+                                .on(node.id)
+                                .with_fix(
+                                    WidgetFix::RemoveOverride {
+                                        node: node.id,
+                                        param: *param,
+                                    },
+                                ),
                             );
                         }
                     }
@@ -388,7 +521,10 @@ mod tests {
     use serde_json::json;
 
     fn library(widgets: &[&WidgetAsset]) -> HashMap<WidgetId, Arc<WidgetAsset>> {
-        widgets.iter().map(|w| (w.id.clone(), Arc::new((*w).clone()))).collect()
+        widgets
+            .iter()
+            .map(|w| (w.id.clone(), Arc::new((*w).clone())))
+            .collect()
     }
 
     fn with_text(w: &mut WidgetAsset) -> NodeId {
@@ -412,10 +548,16 @@ mod tests {
         let b = with_text(&mut w);
         w.rename(b, "Text").unwrap();
         let issues = w.validate(&NoWidgets);
-        let dup = issues.iter().find(|i| i.message.contains("also called")).expect("reported");
+        let dup = issues
+            .iter()
+            .find(|i| i.message.contains("also called"))
+            .expect("reported");
         assert_eq!(dup.node, Some(b));
         w.apply_fix(dup.fix.as_ref().unwrap());
-        assert!(w.validate(&NoWidgets).iter().all(|i| !i.message.contains("also called")));
+        assert!(w
+            .validate(&NoWidgets)
+            .iter()
+            .all(|i| !i.message.contains("also called")));
         assert_ne!(w.node(a).unwrap().name, w.node(b).unwrap().name);
     }
 
@@ -425,13 +567,25 @@ mod tests {
         let t = with_text(&mut w);
         let p = w.add_parameter("Label", ValueClass::Text);
         w.link_parameter(p, t, "text").unwrap();
-        assert!(w.validate(&NoWidgets).iter().all(|i| i.severity != Severity::Error));
+        assert!(w
+            .validate(&NoWidgets)
+            .iter()
+            .all(|i| i.severity != Severity::Error));
         // Break it from outside the editing operations, as a hand-edit would.
-        w.parameters[0].targets.push(crate::model::widget::Target { node: t, prop: "font_size".into() });
+        w.parameters[0].targets.push(crate::model::widget::Target {
+            node: t,
+            prop: "font_size".into(),
+        });
         let issues = w.validate(&NoWidgets);
-        let broken = issues.iter().find(|i| i.severity == Severity::Error).expect("type mismatch reported");
+        let broken = issues
+            .iter()
+            .find(|i| i.severity == Severity::Error)
+            .expect("type mismatch reported");
         w.apply_fix(broken.fix.as_ref().unwrap());
-        assert!(w.validate(&NoWidgets).iter().all(|i| i.severity != Severity::Error));
+        assert!(w
+            .validate(&NoWidgets)
+            .iter()
+            .all(|i| i.severity != Severity::Error));
     }
 
     #[test]
@@ -441,7 +595,10 @@ mod tests {
         let root = w.root.id;
         w.add(root, None, inst).unwrap();
         let issues = w.validate(&NoWidgets);
-        let missing = issues.iter().find(|i| i.severity == Severity::Error).unwrap();
+        let missing = issues
+            .iter()
+            .find(|i| i.severity == Severity::Error)
+            .unwrap();
         assert!(missing.message.contains("ItemCard"), "{}", missing.message);
     }
 
@@ -459,8 +616,14 @@ mod tests {
         c.add(root, None, inst).unwrap();
         let lib = library(&[&a, &b, &c]);
 
-        assert!(would_cycle(&lib, &a.id, &a.id), "a widget can't hold itself");
-        assert!(would_cycle(&lib, &a.id, &c.id), "a would hold c, which holds b, which holds a");
+        assert!(
+            would_cycle(&lib, &a.id, &a.id),
+            "a widget can't hold itself"
+        );
+        assert!(
+            would_cycle(&lib, &a.id, &c.id),
+            "a would hold c, which holds b, which holds a"
+        );
         assert!(!would_cycle(&lib, &c.id, &a.id), "c holding a is fine");
 
         // A file edited by hand to close the loop is reported.
@@ -469,7 +632,10 @@ mod tests {
         let root = a2.root.id;
         a2.add(root, None, inst).unwrap();
         let lib = library(&[&a2, &b, &c]);
-        assert!(a2.validate(&lib).iter().any(|i| i.message.contains("inside itself")));
+        assert!(a2
+            .validate(&lib)
+            .iter()
+            .any(|i| i.message.contains("inside itself")));
     }
 
     #[test]
@@ -483,15 +649,30 @@ mod tests {
         host.add(root, None, inst).unwrap();
         let lib = library(&[&card, &host]);
 
-        fn overrides(host: &mut WidgetAsset, id: NodeId) -> &mut std::collections::BTreeMap<ParamId, Arg> {
-            &mut host.node_mut(id).unwrap().instance.as_mut().unwrap().overrides
+        fn overrides(
+            host: &mut WidgetAsset,
+            id: NodeId,
+        ) -> &mut std::collections::BTreeMap<ParamId, Arg> {
+            &mut host
+                .node_mut(id)
+                .unwrap()
+                .instance
+                .as_mut()
+                .unwrap()
+                .overrides
         }
         overrides(&mut host, inst_id).insert(title, Arg::Value(json!("Hello")));
-        assert!(host.validate(&lib).iter().all(|i| i.severity != Severity::Warning && i.severity != Severity::Error));
+        assert!(host
+            .validate(&lib)
+            .iter()
+            .all(|i| i.severity != Severity::Warning && i.severity != Severity::Error));
 
         overrides(&mut host, inst_id).insert(title, Arg::Value(json!(5)));
         let issues = host.validate(&lib);
-        let wrong = issues.iter().find(|i| i.message.contains("doesn't match")).expect("type mismatch");
+        let wrong = issues
+            .iter()
+            .find(|i| i.message.contains("doesn't match"))
+            .expect("type mismatch");
         host.apply_fix(wrong.fix.as_ref().unwrap());
 
         overrides(&mut host, inst_id).insert(ParamId(77), Arg::Value(json!("x")));
@@ -517,13 +698,25 @@ mod tests {
         let child_id = child.id;
         host.add(inst_id, None, child).unwrap();
         let lib = library(&[&frame, &host]);
-        assert!(host.validate(&lib).iter().all(|i| i.severity < Severity::Warning), "{:?}", host.validate(&lib));
+        assert!(
+            host.validate(&lib)
+                .iter()
+                .all(|i| i.severity < Severity::Warning),
+            "{:?}",
+            host.validate(&lib)
+        );
 
         host.node_mut(child_id).unwrap().for_slot = Some("Header".into());
         let issues = host.validate(&lib);
-        let bad = issues.iter().find(|i| i.message.contains("no slot")).expect("reported");
+        let bad = issues
+            .iter()
+            .find(|i| i.message.contains("no slot"))
+            .expect("reported");
         host.apply_fix(bad.fix.as_ref().unwrap());
-        assert_eq!(host.node(child_id).unwrap().for_slot.as_deref(), Some("Content"));
+        assert_eq!(
+            host.node(child_id).unwrap().for_slot.as_deref(),
+            Some("Content")
+        );
     }
 
     #[test]
