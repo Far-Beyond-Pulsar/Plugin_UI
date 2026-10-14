@@ -64,7 +64,10 @@ impl Handle {
     }
 
     pub fn is_corner(self) -> bool {
-        matches!(self, Handle::TopLeft | Handle::TopRight | Handle::BottomRight | Handle::BottomLeft)
+        matches!(
+            self,
+            Handle::TopLeft | Handle::TopRight | Handle::BottomRight | Handle::BottomLeft
+        )
     }
 }
 
@@ -73,11 +76,32 @@ impl Handle {
 /// `keep_aspect` holds the width:height ratio (corner handles), and
 /// `from_center` resizes symmetrically about the centre. Neither dimension
 /// goes below `min`.
-pub fn resize_rect(start: Rect, handle: Handle, delta: Vec2, keep_aspect: bool, from_center: bool, min: f32) -> Rect {
+pub fn resize_rect(
+    start: Rect,
+    handle: Handle,
+    delta: Vec2,
+    keep_aspect: bool,
+    from_center: bool,
+    min: f32,
+) -> Rect {
     let (l, r, t, b) = handle.edges();
     let mul = if from_center { 2.0 } else { 1.0 };
-    let mut w = start.w + if r { delta.x * mul } else if l { -delta.x * mul } else { 0.0 };
-    let mut h = start.h + if b { delta.y * mul } else if t { -delta.y * mul } else { 0.0 };
+    let mut w = start.w
+        + if r {
+            delta.x * mul
+        } else if l {
+            -delta.x * mul
+        } else {
+            0.0
+        };
+    let mut h = start.h
+        + if b {
+            delta.y * mul
+        } else if t {
+            -delta.y * mul
+        } else {
+            0.0
+        };
     w = w.max(min);
     h = h.max(min);
 
@@ -188,7 +212,12 @@ pub fn snap_move(moving: Rect, targets: &[Rect], bounds: Rect, snap: Snap) -> (V
     match nearest(&xs(&moving), &lines_x, snap.tolerance) {
         Some((d, at)) => {
             correction.x = d;
-            guides.push(guide_x(at, moving.translate(Vec2::new(d, 0.0)), targets, bounds));
+            guides.push(guide_x(
+                at,
+                moving.translate(Vec2::new(d, 0.0)),
+                targets,
+                bounds,
+            ));
         }
         None => {
             if let Some(g) = snap.grid.filter(|g| *g > 0.0) {
@@ -202,7 +231,12 @@ pub fn snap_move(moving: Rect, targets: &[Rect], bounds: Rect, snap: Snap) -> (V
     match nearest(&ys(&moving), &lines_y, snap.tolerance) {
         Some((d, at)) => {
             correction.y = d;
-            guides.push(guide_y(at, moving.translate(Vec2::new(0.0, d)), targets, bounds));
+            guides.push(guide_y(
+                at,
+                moving.translate(Vec2::new(0.0, d)),
+                targets,
+                bounds,
+            ));
         }
         None => {
             if let Some(g) = snap.grid.filter(|g| *g > 0.0) {
@@ -225,7 +259,12 @@ fn guide_x(at: f32, moved: Rect, targets: &[Rect], bounds: Rect) -> Guide {
             to = to.max(t.bottom());
         }
     }
-    Guide { axis: GuideAxis::X, at, from: from.min(moved.y), to: to.max(moved.bottom()) }
+    Guide {
+        axis: GuideAxis::X,
+        at,
+        from: from.min(moved.y),
+        to: to.max(moved.bottom()),
+    }
 }
 
 fn guide_y(at: f32, moved: Rect, targets: &[Rect], bounds: Rect) -> Guide {
@@ -237,12 +276,23 @@ fn guide_y(at: f32, moved: Rect, targets: &[Rect], bounds: Rect) -> Guide {
             to = to.max(t.right());
         }
     }
-    Guide { axis: GuideAxis::Y, at, from: from.min(moved.x), to: to.max(moved.right()) }
+    Guide {
+        axis: GuideAxis::Y,
+        at,
+        from: from.min(moved.x),
+        to: to.max(moved.right()),
+    }
 }
 
 /// `rect` (being resized by `handle`) with its moving edges snapped to
 /// `targets`, `bounds` or the grid.
-pub fn snap_resize(rect: Rect, handle: Handle, targets: &[Rect], bounds: Rect, snap: Snap) -> (Rect, Vec<Guide>) {
+pub fn snap_resize(
+    rect: Rect,
+    handle: Handle,
+    targets: &[Rect],
+    bounds: Rect,
+    snap: Snap,
+) -> (Rect, Vec<Guide>) {
     let (l, r, t, b) = handle.edges();
     let mut lines_x: Vec<f32> = xs(&bounds).to_vec();
     let mut lines_y: Vec<f32> = ys(&bounds).to_vec();
@@ -265,28 +315,51 @@ pub fn snap_resize(rect: Rect, handle: Handle, targets: &[Rect], bounds: Rect, s
     if l {
         if let Some((d, at)) = nearest(&[left], &lines_x, snap.tolerance) {
             left += d;
-            guides.push(guide_x(at, Rect::new(left, top, right - left, bottom - top), targets, bounds));
+            guides.push(guide_x(
+                at,
+                Rect::new(left, top, right - left, bottom - top),
+                targets,
+                bounds,
+            ));
         }
     }
     if r {
         if let Some((d, at)) = nearest(&[right], &lines_x, snap.tolerance) {
             right += d;
-            guides.push(guide_x(at, Rect::new(left, top, right - left, bottom - top), targets, bounds));
+            guides.push(guide_x(
+                at,
+                Rect::new(left, top, right - left, bottom - top),
+                targets,
+                bounds,
+            ));
         }
     }
     if t {
         if let Some((d, at)) = nearest(&[top], &lines_y, snap.tolerance) {
             top += d;
-            guides.push(guide_y(at, Rect::new(left, top, right - left, bottom - top), targets, bounds));
+            guides.push(guide_y(
+                at,
+                Rect::new(left, top, right - left, bottom - top),
+                targets,
+                bounds,
+            ));
         }
     }
     if b {
         if let Some((d, at)) = nearest(&[bottom], &lines_y, snap.tolerance) {
             bottom += d;
-            guides.push(guide_y(at, Rect::new(left, top, right - left, bottom - top), targets, bounds));
+            guides.push(guide_y(
+                at,
+                Rect::new(left, top, right - left, bottom - top),
+                targets,
+                bounds,
+            ));
         }
     }
-    (Rect::new(left, top, (right - left).max(0.0), (bottom - top).max(0.0)), guides)
+    (
+        Rect::new(left, top, (right - left).max(0.0), (bottom - top).max(0.0)),
+        guides,
+    )
 }
 
 // ── Aligning ───────────────────────────────────────────────────────────────
@@ -302,8 +375,14 @@ pub enum AlignKind {
 }
 
 impl AlignKind {
-    pub const ALL: [AlignKind; 6] =
-        [AlignKind::Left, AlignKind::CenterH, AlignKind::Right, AlignKind::Top, AlignKind::CenterV, AlignKind::Bottom];
+    pub const ALL: [AlignKind; 6] = [
+        AlignKind::Left,
+        AlignKind::CenterH,
+        AlignKind::Right,
+        AlignKind::Top,
+        AlignKind::CenterV,
+        AlignKind::Bottom,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -319,7 +398,9 @@ impl AlignKind {
 
 /// How far each item moves to line up with `primary`.
 pub fn align(items: &[(NodeId, Rect)], primary: NodeId, kind: AlignKind) -> Vec<(NodeId, Vec2)> {
-    let Some((_, anchor)) = items.iter().find(|(id, _)| *id == primary) else { return Vec::new() };
+    let Some((_, anchor)) = items.iter().find(|(id, _)| *id == primary) else {
+        return Vec::new();
+    };
     items
         .iter()
         .filter(|(id, _)| *id != primary)
@@ -345,7 +426,11 @@ pub fn distribute(items: &[(NodeId, Rect)], horizontal: bool) -> Vec<(NodeId, Ve
     }
     let mut sorted: Vec<&(NodeId, Rect)> = items.iter().collect();
     sorted.sort_by(|a, b| {
-        let (ka, kb) = if horizontal { (a.1.x, b.1.x) } else { (a.1.y, b.1.y) };
+        let (ka, kb) = if horizontal {
+            (a.1.x, b.1.x)
+        } else {
+            (a.1.y, b.1.y)
+        };
         ka.total_cmp(&kb)
     });
     let (first, last) = (sorted[0].1, sorted[sorted.len() - 1].1);
@@ -360,7 +445,14 @@ pub fn distribute(items: &[(NodeId, Rect)], horizontal: bool) -> Vec<(NodeId, Ve
         .map(|(id, r)| {
             let d = cursor - start(r);
             cursor += size(r) + gap;
-            (*id, if horizontal { Vec2::new(d, 0.0) } else { Vec2::new(0.0, d) })
+            (
+                *id,
+                if horizontal {
+                    Vec2::new(d, 0.0)
+                } else {
+                    Vec2::new(0.0, d)
+                },
+            )
         })
         .collect()
 }
@@ -440,15 +532,20 @@ impl AnchorPreset {
     /// The preset in a row-major 4 x 4 picker: rows top, middle, bottom,
     /// stretch; columns left, centre, right, stretch.
     pub fn at(row: usize, col: usize) -> AnchorPreset {
-        AnchorPreset { h: Pin::ALL[col.min(3)], v: [Pin::Start, Pin::Center, Pin::End, Pin::Stretch][row.min(3)] }
+        AnchorPreset {
+            h: Pin::ALL[col.min(3)],
+            v: [Pin::Start, Pin::Center, Pin::End, Pin::Stretch][row.min(3)],
+        }
     }
 
     /// The preset whose anchors are `amin`..`amax`, if there is one.
     pub fn matching(amin: Vec2, amax: Vec2) -> Option<AnchorPreset> {
-        (0..4).flat_map(|r| (0..4).map(move |c| AnchorPreset::at(r, c))).find(|p| {
-            let (a, b) = p.anchors();
-            a == amin && b == amax
-        })
+        (0..4)
+            .flat_map(|r| (0..4).map(move |c| AnchorPreset::at(r, c)))
+            .find(|p| {
+                let (a, b) = p.anchors();
+                a == amin && b == amax
+            })
     }
 }
 
@@ -463,16 +560,43 @@ mod tests {
     #[test]
     fn dragging_a_corner_resizes_from_the_opposite_corner() {
         let r = Rect::new(100.0, 100.0, 200.0, 100.0);
-        assert_eq!(resize_rect(r, Handle::BottomRight, Vec2::new(20.0, 10.0), false, false, 1.0), Rect::new(100.0, 100.0, 220.0, 110.0));
-        assert_eq!(resize_rect(r, Handle::TopLeft, Vec2::new(20.0, 10.0), false, false, 1.0), Rect::new(120.0, 110.0, 180.0, 90.0));
-        assert_eq!(resize_rect(r, Handle::Right, Vec2::new(-50.0, 99.0), false, false, 1.0), Rect::new(100.0, 100.0, 150.0, 100.0), "edge handles move one axis");
-        assert_eq!(resize_rect(r, Handle::Bottom, Vec2::new(99.0, 30.0), false, false, 1.0), Rect::new(100.0, 100.0, 200.0, 130.0));
+        assert_eq!(
+            resize_rect(
+                r,
+                Handle::BottomRight,
+                Vec2::new(20.0, 10.0),
+                false,
+                false,
+                1.0
+            ),
+            Rect::new(100.0, 100.0, 220.0, 110.0)
+        );
+        assert_eq!(
+            resize_rect(r, Handle::TopLeft, Vec2::new(20.0, 10.0), false, false, 1.0),
+            Rect::new(120.0, 110.0, 180.0, 90.0)
+        );
+        assert_eq!(
+            resize_rect(r, Handle::Right, Vec2::new(-50.0, 99.0), false, false, 1.0),
+            Rect::new(100.0, 100.0, 150.0, 100.0),
+            "edge handles move one axis"
+        );
+        assert_eq!(
+            resize_rect(r, Handle::Bottom, Vec2::new(99.0, 30.0), false, false, 1.0),
+            Rect::new(100.0, 100.0, 200.0, 130.0)
+        );
     }
 
     #[test]
     fn resizing_never_goes_below_the_minimum_and_keeps_the_far_edge_put() {
         let r = Rect::new(100.0, 100.0, 50.0, 50.0);
-        let shrunk = resize_rect(r, Handle::TopLeft, Vec2::new(500.0, 500.0), false, false, 4.0);
+        let shrunk = resize_rect(
+            r,
+            Handle::TopLeft,
+            Vec2::new(500.0, 500.0),
+            false,
+            false,
+            4.0,
+        );
         assert_eq!((shrunk.w, shrunk.h), (4.0, 4.0));
         assert_eq!((shrunk.right(), shrunk.bottom()), (150.0, 150.0));
     }
@@ -480,24 +604,39 @@ mod tests {
     #[test]
     fn holding_the_aspect_ratio_and_resizing_from_the_centre() {
         let r = Rect::new(0.0, 0.0, 200.0, 100.0);
-        let k = resize_rect(r, Handle::BottomRight, Vec2::new(100.0, 5.0), true, false, 1.0);
+        let k = resize_rect(
+            r,
+            Handle::BottomRight,
+            Vec2::new(100.0, 5.0),
+            true,
+            false,
+            1.0,
+        );
         assert!((k.w / k.h - 2.0).abs() < 1e-4, "{k:?}");
         let c = resize_rect(r, Handle::Right, Vec2::new(20.0, 0.0), false, true, 1.0);
         assert_eq!(c, Rect::new(-20.0, 0.0, 240.0, 100.0));
         let edge = resize_rect(r, Handle::Right, Vec2::new(100.0, 0.0), true, false, 1.0);
         assert!((edge.w / edge.h - 2.0).abs() < 1e-4);
-        assert!((edge.center().y - 50.0).abs() < 1e-3, "the other axis grows about the centre");
+        assert!(
+            (edge.center().y - 50.0).abs() < 1e-3,
+            "the other axis grows about the centre"
+        );
     }
 
     #[test]
     fn moving_snaps_to_neighbours_before_the_grid() {
         let bounds = Rect::new(0.0, 0.0, 1000.0, 500.0);
         let other = Rect::new(300.0, 100.0, 100.0, 50.0);
-        let snap = Snap { grid: Some(8.0), tolerance: 5.0 };
+        let snap = Snap {
+            grid: Some(8.0),
+            tolerance: 5.0,
+        };
         // Left edge 3px from the neighbour's right edge (400).
         let (d, guides) = snap_move(Rect::new(403.0, 300.0, 80.0, 40.0), &[other], bounds, snap);
         assert_eq!(d.x, -3.0);
-        assert!(guides.iter().any(|g| g.axis == GuideAxis::X && g.at == 400.0));
+        assert!(guides
+            .iter()
+            .any(|g| g.axis == GuideAxis::X && g.at == 400.0));
         // Nothing near vertically except the grid.
         assert_eq!(d.y, 4.0 - 4.0 + (300.0f32 / 8.0).round() * 8.0 - 300.0);
     }
@@ -505,7 +644,10 @@ mod tests {
     #[test]
     fn centres_snap_to_the_containers_centre() {
         let bounds = Rect::new(0.0, 0.0, 1000.0, 500.0);
-        let snap = Snap { grid: None, tolerance: 6.0 };
+        let snap = Snap {
+            grid: None,
+            tolerance: 6.0,
+        };
         let (d, guides) = snap_move(Rect::new(458.0, 200.0, 80.0, 40.0), &[], bounds, snap);
         assert_eq!(d.x, 2.0, "centre 498 -> 500");
         assert_eq!(guides[0].at, 500.0);
@@ -517,8 +659,17 @@ mod tests {
     #[test]
     fn resizing_snaps_only_the_edges_being_dragged() {
         let bounds = Rect::new(0.0, 0.0, 1000.0, 500.0);
-        let snap = Snap { grid: None, tolerance: 6.0 };
-        let (r, guides) = snap_resize(Rect::new(100.0, 100.0, 897.0, 100.0), Handle::Right, &[], bounds, snap);
+        let snap = Snap {
+            grid: None,
+            tolerance: 6.0,
+        };
+        let (r, guides) = snap_resize(
+            Rect::new(100.0, 100.0, 897.0, 100.0),
+            Handle::Right,
+            &[],
+            bounds,
+            snap,
+        );
         assert_eq!(r.right(), 1000.0, "right edge snaps to the container");
         assert_eq!(r.x, 100.0);
         assert_eq!(guides.len(), 1);
@@ -526,9 +677,19 @@ mod tests {
 
     #[test]
     fn aligning_moves_everything_to_the_primary() {
-        let items = [(id(1), Rect::new(10.0, 10.0, 50.0, 20.0)), (id(2), Rect::new(100.0, 40.0, 30.0, 60.0)), (id(3), Rect::new(200.0, 5.0, 10.0, 10.0))];
+        let items = [
+            (id(1), Rect::new(10.0, 10.0, 50.0, 20.0)),
+            (id(2), Rect::new(100.0, 40.0, 30.0, 60.0)),
+            (id(3), Rect::new(200.0, 5.0, 10.0, 10.0)),
+        ];
         let left = align(&items, id(1), AlignKind::Left);
-        assert_eq!(left, vec![(id(2), Vec2::new(-90.0, 0.0)), (id(3), Vec2::new(-190.0, 0.0))]);
+        assert_eq!(
+            left,
+            vec![
+                (id(2), Vec2::new(-90.0, 0.0)),
+                (id(3), Vec2::new(-190.0, 0.0))
+            ]
+        );
         let mid = align(&items, id(2), AlignKind::CenterV);
         assert_eq!(mid[0], (id(1), Vec2::new(0.0, 70.0 - 20.0)));
         assert!(align(&items, id(9), AlignKind::Top).is_empty());
@@ -536,9 +697,16 @@ mod tests {
 
     #[test]
     fn distributing_equalises_the_gaps() {
-        let items = [(id(1), Rect::new(0.0, 0.0, 10.0, 10.0)), (id(2), Rect::new(15.0, 0.0, 10.0, 10.0)), (id(3), Rect::new(100.0, 0.0, 10.0, 10.0))];
+        let items = [
+            (id(1), Rect::new(0.0, 0.0, 10.0, 10.0)),
+            (id(2), Rect::new(15.0, 0.0, 10.0, 10.0)),
+            (id(3), Rect::new(100.0, 0.0, 10.0, 10.0)),
+        ];
         let moves = distribute(&items, true);
-        let new_x: Vec<f32> = moves.iter().map(|(i, d)| items.iter().find(|(j, _)| j == i).unwrap().1.x + d.x).collect();
+        let new_x: Vec<f32> = moves
+            .iter()
+            .map(|(i, d)| items.iter().find(|(j, _)| j == i).unwrap().1.x + d.x)
+            .collect();
         // 110 wide in total, 30 of boxes: two gaps of 40.
         assert_eq!(new_x, vec![0.0, 50.0, 100.0]);
         assert!(distribute(&items[..2], true).is_empty());
@@ -555,7 +723,13 @@ mod tests {
         let fill = AnchorPreset::at(3, 3);
         assert_eq!(fill.anchors(), (Vec2::ZERO, Vec2::new(1.0, 1.0)));
         assert_eq!(fill.label(), "Fill the panel");
-        assert_eq!(AnchorPreset::matching(Vec2::new(0.5, 0.5), Vec2::new(0.5, 0.5)), Some(AnchorPreset::at(1, 1)));
-        assert_eq!(AnchorPreset::matching(Vec2::new(0.2, 0.0), Vec2::new(0.2, 0.0)), None);
+        assert_eq!(
+            AnchorPreset::matching(Vec2::new(0.5, 0.5), Vec2::new(0.5, 0.5)),
+            Some(AnchorPreset::at(1, 1))
+        );
+        assert_eq!(
+            AnchorPreset::matching(Vec2::new(0.2, 0.0), Vec2::new(0.2, 0.0)),
+            None
+        );
     }
 }

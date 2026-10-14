@@ -21,7 +21,7 @@ use crate::model::{Asset, WidgetId};
 /// File extension of widget assets.
 pub const WIDGET_EXTENSION: &str = "widget";
 
-/// Directories never scanned.
+/// Directories omitted from widget discovery.
 const SKIPPED_DIRS: [&str; 5] = ["target", "node_modules", ".git", ".pulsar", ".cargo"];
 
 /// Stop scanning after this many files, so a huge directory can't stall the editor.
@@ -75,27 +75,48 @@ pub struct Library {
 impl Library {
     /// An empty library, for before the first scan finishes.
     pub fn empty(root: PathBuf) -> Self {
-        Self { root, ..Default::default() }
+        Self {
+            root,
+            ..Default::default()
+        }
     }
 
-    /// Scan `root` for widgets. Reads every `.widget` file, so call it off the
-    /// UI thread for large projects.
+    /// Load every indexed `.widget` payload under `root`, so call this off the UI
+    /// thread for large projects. Candidate discovery uses the persistent project
+    /// index when available and the provider manifest as a compatibility fallback.
     pub fn scan(root: &Path) -> Self {
         let mut library = Self::empty(root.to_path_buf());
-        let mut files = Vec::new();
-        collect(root, &mut files);
+        let file_index = match engine_fs::open_project_file_index(root) {
+            Ok(index) => index,
+            Err(error) => {
+                tracing::warn!(%error, root = %root.display(), "Could not open project file index for widget library");
+                None
+            }
+        };
+        let files = file_index
+            .as_deref()
+            .and_then(|index| indexed_widget_paths(index, root))
+            .unwrap_or_else(|| widget_paths_from_manifest(root));
         for path in files {
-            library.add_file(&path);
+            library.add_file(&path, file_index.as_deref());
         }
         library.problems.sort_by(|a, b| a.path.cmp(&b.path));
         library
     }
 
-    fn add_file(&mut self, path: &Path) {
+    fn add_file(&mut self, path: &Path, file_index: Option<&engine_fs::ProjectFileIndex>) {
+        if let Some(index) = file_index {
+            if let Err(error) = index.clear_asset_ids(path) {
+                tracing::warn!(%error, path = %path.display(), "Could not clear stale widget ID index entry");
+            }
+        }
         let text = match std::fs::read_to_string(path) {
             Ok(text) => text,
             Err(error) => {
-                self.problems.push(Problem { path: path.to_path_buf(), kind: ProblemKind::Unreadable(error.to_string()) });
+                self.problems.push(Problem {
+                    path: path.to_path_buf(),
+                    kind: ProblemKind::Unreadable(error.to_string()),
+                });
                 return;
             }
         };
@@ -106,16 +127,35 @@ impl Library {
                 _ if text.trim().is_empty() => ProblemKind::NoId,
                 _ => ProblemKind::Unreadable("not a widget file".to_string()),
             };
-            self.problems.push(Problem { path: path.to_path_buf(), kind });
+            self.problems.push(Problem {
+                path: path.to_path_buf(),
+                kind,
+            });
             return;
         }
         match WidgetAsset::parse(&text) {
             Ok((widget, _notes)) => {
-                let name = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+                let name = path
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
                 let id = widget.id.clone();
-                self.by_id.entry(id.clone()).or_default().push(Entry { id, path: path.to_path_buf(), name, widget: Arc::new(widget) });
+                if let Some(index) = file_index {
+                    if let Err(error) = index.record_asset_id(id.as_str(), path) {
+                        tracing::warn!(%error, path = %path.display(), "Could not record widget ID in project file index");
+                    }
+                }
+                self.by_id.entry(id.clone()).or_default().push(Entry {
+                    id,
+                    path: path.to_path_buf(),
+                    name,
+                    widget: Arc::new(widget),
+                });
             }
-            Err(error) => self.problems.push(Problem { path: path.to_path_buf(), kind: ProblemKind::Unreadable(error) }),
+            Err(error) => self.problems.push(Problem {
+                path: path.to_path_buf(),
+                kind: ProblemKind::Unreadable(error),
+            }),
         }
     }
 
@@ -140,15 +180,37 @@ impl Library {
         self.entry(id).map(|e| e.path.as_path())
     }
 
+    /// Resolve a stable widget ID to every indexed project path without
+    /// loading or parsing the widget payloads. Multiple paths mean the ID was
+    /// copied and is ambiguous until one copy is assigned a new ID.
+    pub fn indexed_paths_for_id(root: &Path, id: &WidgetId) -> Vec<PathBuf> {
+        let Ok(Some(index)) = engine_fs::open_project_file_index(root) else {
+            return Vec::new();
+        };
+        index.paths_for_asset_id(id.as_str()).unwrap_or_else(|error| {
+            tracing::warn!(%error, id = %id, "Could not resolve widget ID through project file index");
+            Vec::new()
+        })
+    }
+
     /// The id of the widget at `path`, if the library has indexed it.
     pub fn id_at(&self, path: &Path) -> Option<&WidgetId> {
-        self.by_id.values().flatten().find(|e| same_file(&e.path, path)).map(|e| &e.id)
+        self.by_id
+            .values()
+            .flatten()
+            .find(|e| same_file(&e.path, path))
+            .map(|e| &e.id)
     }
 
     /// All widgets, by name then path.
     pub fn entries(&self) -> Vec<&Entry> {
         let mut all: Vec<&Entry> = self.by_id.values().flatten().collect();
-        all.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then_with(|| a.path.cmp(&b.path)));
+        all.sort_by(|a, b| {
+            a.name
+                .to_lowercase()
+                .cmp(&b.name.to_lowercase())
+                .then_with(|| a.path.cmp(&b.path))
+        });
         all
     }
 
@@ -167,7 +229,12 @@ impl Library {
 
     /// Ids claimed by more than one file.
     pub fn conflicts(&self) -> Vec<(&WidgetId, &[Entry])> {
-        let mut out: Vec<_> = self.by_id.iter().filter(|(_, v)| v.len() > 1).map(|(k, v)| (k, v.as_slice())).collect();
+        let mut out: Vec<_> = self
+            .by_id
+            .iter()
+            .filter(|(_, v)| v.len() > 1)
+            .map(|(k, v)| (k, v.as_slice()))
+            .collect();
         out.sort_by(|a, b| a.0.cmp(b.0));
         out
     }
@@ -178,7 +245,10 @@ impl Library {
 
     /// The widgets that contain an instance of `id`.
     pub fn used_by(&self, id: &WidgetId) -> Vec<&Entry> {
-        self.entries().into_iter().filter(|e| e.widget.dependencies().contains(id)).collect()
+        self.entries()
+            .into_iter()
+            .filter(|e| e.widget.dependencies().contains(id))
+            .collect()
     }
 
     /// For each widget, how many widgets instance it.
@@ -199,7 +269,9 @@ impl Library {
         let mut order = Vec::new();
         let mut stack = vec![id.clone()];
         while let Some(current) = stack.pop() {
-            let Some(entry) = self.entry(&current) else { continue };
+            let Some(entry) = self.entry(&current) else {
+                continue;
+            };
             for dep in entry.widget.dependencies() {
                 if &dep != id && seen.insert(dep.clone()) {
                     order.push(dep.clone());
@@ -218,13 +290,19 @@ impl Library {
             entries.retain(|e| !same_file(&e.path, path));
         }
         copy.by_id.retain(|_, v| !v.is_empty());
-        let name = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-        copy.by_id.entry(widget.id.clone()).or_default().push(Entry {
-            id: widget.id.clone(),
-            path: path.to_path_buf(),
-            name,
-            widget: Arc::new(widget.clone()),
-        });
+        let name = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        copy.by_id
+            .entry(widget.id.clone())
+            .or_default()
+            .push(Entry {
+                id: widget.id.clone(),
+                path: path.to_path_buf(),
+                name,
+                widget: Arc::new(widget.clone()),
+            });
         copy
     }
 }
@@ -253,26 +331,59 @@ fn same_file(a: &Path, b: &Path) -> bool {
     }
 }
 
-fn collect(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(read) = std::fs::read_dir(dir) else { return };
-    let mut entries: Vec<_> = read.filter_map(Result::ok).collect();
-    entries.sort_by_key(|e| e.file_name());
+fn indexed_widget_paths(index: &engine_fs::ProjectFileIndex, root: &Path) -> Option<Vec<PathBuf>> {
+    let entries = index
+        .query(&engine_fs::FileIndexQuery {
+            extension: Some(WIDGET_EXTENSION.to_owned()),
+            ..Default::default()
+        })
+        .map_err(|error| {
+            tracing::warn!(%error, "Could not query widget paths from project file index");
+            error
+        })
+        .ok()?;
+    let mut files = Vec::new();
     for entry in entries {
-        if out.len() >= MAX_FILES {
-            return;
-        }
-        let path = entry.path();
-        let Ok(kind) = entry.file_type() else { continue };
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if kind.is_dir() {
-            if !SKIPPED_DIRS.contains(&name.as_ref()) && !name.starts_with('.') {
-                collect(&path, out);
+        let path = Path::new(&entry.path);
+        let skipped = path.components().any(|component| {
+            let name = component.as_os_str().to_string_lossy();
+            SKIPPED_DIRS.contains(&name.as_ref()) || name.starts_with('.')
+        });
+        if !skipped {
+            files.push(root.join(path));
+            if files.len() == MAX_FILES {
+                break;
             }
-        } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case(WIDGET_EXTENSION)) {
-            out.push(path);
         }
     }
+    files.sort();
+    Some(files)
+}
+
+fn widget_paths_from_manifest(root: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = engine_fs::virtual_fs::manifest(root) else {
+        return Vec::new();
+    };
+    let mut files = Vec::new();
+    for entry in entries.into_iter().filter(|entry| !entry.is_dir) {
+        let path = Path::new(&entry.path);
+        let skipped = path.components().any(|component| {
+            let name = component.as_os_str().to_string_lossy();
+            SKIPPED_DIRS.contains(&name.as_ref()) || name.starts_with('.')
+        });
+        if !skipped
+            && path
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case(WIDGET_EXTENSION))
+        {
+            files.push(root.join(path));
+            if files.len() == MAX_FILES {
+                break;
+            }
+        }
+    }
+    files.sort();
+    files
 }
 
 /// Write `id` into the widget file at `path` if it has none, changing nothing
@@ -325,6 +436,28 @@ mod tests {
     }
 
     #[test]
+    fn project_index_discovers_widget_paths_and_tracks_stable_ids() {
+        let dir = project("persistent_index");
+        let widget = WidgetAsset::new();
+        let path = write(&dir, "ui/Card.widget", &widget);
+
+        let library = Library::scan(&dir);
+        assert_eq!(library.path_of(&widget.id), Some(path.as_path()));
+        assert_eq!(
+            Library::indexed_paths_for_id(&dir, &widget.id),
+            [path.clone()]
+        );
+
+        // Removing the ID from a still-discoverable asset clears its stale
+        // stable-ID association after the payload is parsed again.
+        std::fs::write(&path, "{}").unwrap();
+        let library = Library::scan(&dir);
+        assert!(library.is_empty());
+        assert!(Library::indexed_paths_for_id(&dir, &widget.id).is_empty());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
     fn renaming_or_moving_a_file_keeps_references_valid() {
         let dir = project("move");
         let card = WidgetAsset::new();
@@ -336,15 +469,26 @@ mod tests {
         write(&dir, "ui/Menu.widget", &menu);
 
         let before = Library::scan(&dir);
-        assert!(menu.validate(&before).iter().all(|i| i.severity < crate::model::Severity::Error));
+        assert!(menu
+            .validate(&before)
+            .iter()
+            .all(|i| i.severity < crate::model::Severity::Error));
 
         // Rename and move the file; nothing inside any file changes.
         std::fs::create_dir_all(dir.join("shared")).unwrap();
         std::fs::rename(&card_path, dir.join("shared/ItemCard.widget")).unwrap();
         let after = Library::scan(&dir);
-        assert_eq!(after.path_of(&card.id), Some(dir.join("shared/ItemCard.widget").as_path()));
+        assert_eq!(
+            after.path_of(&card.id),
+            Some(dir.join("shared/ItemCard.widget").as_path())
+        );
         let issues = menu.validate(&after);
-        assert!(issues.iter().all(|i| i.severity < crate::model::Severity::Error), "{issues:?}");
+        assert!(
+            issues
+                .iter()
+                .all(|i| i.severity < crate::model::Severity::Error),
+            "{issues:?}"
+        );
         // The only note is that the display name changed.
         assert!(issues.iter().any(|i| i.message.contains("ItemCard")));
         std::fs::remove_dir_all(&dir).ok();
@@ -369,7 +513,10 @@ mod tests {
         let inst = user.new_instance(a.id.clone(), "A");
         let root = user.root.id;
         user.add(root, None, inst).unwrap();
-        assert!(user.validate(&lib).iter().any(|i| i.message.contains("More than one file")));
+        assert!(user
+            .validate(&lib)
+            .iter()
+            .any(|i| i.message.contains("More than one file")));
 
         // Giving the copy a new id resolves it.
         let (mut fixed, _) = WidgetAsset::parse(&std::fs::read_to_string(&copy).unwrap()).unwrap();
@@ -385,19 +532,38 @@ mod tests {
     fn files_without_an_id_are_listed_and_can_be_stamped() {
         let dir = project("stamp");
         let path = dir.join("Old.widget");
-        std::fs::write(&path, r#"{ "root": { "id": 1, "name": "Root", "kind": "canvas" } }"#).unwrap();
+        std::fs::write(
+            &path,
+            r#"{ "root": { "id": 1, "name": "Root", "kind": "canvas" } }"#,
+        )
+        .unwrap();
         std::fs::write(dir.join("Empty.widget"), "").unwrap();
         std::fs::write(dir.join("Junk.widget"), "{ nope").unwrap();
 
         let lib = Library::scan(&dir);
         assert!(lib.is_empty());
-        let kinds: Vec<_> = lib.problems().iter().map(|p| (p.path.file_name().unwrap().to_string_lossy().into_owned(), p.kind.clone())).collect();
+        let kinds: Vec<_> = lib
+            .problems()
+            .iter()
+            .map(|p| {
+                (
+                    p.path.file_name().unwrap().to_string_lossy().into_owned(),
+                    p.kind.clone(),
+                )
+            })
+            .collect();
         assert!(kinds.contains(&("Old.widget".into(), ProblemKind::NoId)));
         assert!(kinds.contains(&("Empty.widget".into(), ProblemKind::NoId)));
-        assert!(kinds.iter().any(|(n, k)| n == "Junk.widget" && matches!(k, ProblemKind::Unreadable(_))));
+        assert!(kinds
+            .iter()
+            .any(|(n, k)| n == "Junk.widget" && matches!(k, ProblemKind::Unreadable(_))));
 
         let id = stamp_file(&path).unwrap();
-        assert_eq!(stamp_file(&path).unwrap(), id, "stamping twice keeps the first id");
+        assert_eq!(
+            stamp_file(&path).unwrap(),
+            id,
+            "stamping twice keeps the first id"
+        );
         assert_eq!(Library::scan(&dir).entry(&id).unwrap().name, "Old");
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -421,7 +587,10 @@ mod tests {
         assert_eq!(lib.used_by(&leaf.id).len(), 1);
         assert_eq!(lib.used_by(&leaf.id)[0].name, "Mid");
         assert_eq!(lib.usage_counts().get(&mid.id), Some(&1));
-        assert_eq!(lib.transitive_dependencies(&top.id), vec![mid.id.clone(), leaf.id.clone()]);
+        assert_eq!(
+            lib.transitive_dependencies(&top.id),
+            vec![mid.id.clone(), leaf.id.clone()]
+        );
         assert!(lib.transitive_dependencies(&leaf.id).is_empty());
         std::fs::remove_dir_all(&dir).ok();
     }

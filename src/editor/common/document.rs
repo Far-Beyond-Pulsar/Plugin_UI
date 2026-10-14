@@ -129,7 +129,10 @@ impl<A: Asset> Document<A> {
                     // on disk before anything can refer to it.
                     if asset.stamp() {
                         if let Err(error) = std::fs::write(path, asset.to_text()) {
-                            tracing::error!("couldn't write the new id into {}: {error}", path.display());
+                            tracing::error!(
+                                "couldn't write the new id into {}: {error}",
+                                path.display()
+                            );
                         }
                     }
                     self.asset = asset;
@@ -162,10 +165,10 @@ impl<A: Asset> Document<A> {
     }
 
     pub fn file_name(&self) -> String {
-        self.path
-            .as_ref()
-            .and_then(|p| p.file_stem())
-            .map_or_else(|| format!("New {}", A::KIND), |n| n.to_string_lossy().into_owned())
+        self.path.as_ref().and_then(|p| p.file_stem()).map_or_else(
+            || format!("New {}", A::KIND),
+            |n| n.to_string_lossy().into_owned(),
+        )
     }
 
     pub fn load_notes(&self) -> &[String] {
@@ -234,10 +237,14 @@ impl<A: Asset> Document<A> {
         }
         self.status = None;
         self.revision += 1;
-        lock(&self.history).push(AssetEdit { other: before, label, key: merge_key, at: Instant::now() });
+        lock(&self.history).push(AssetEdit {
+            other: before,
+            label,
+            key: merge_key,
+            at: Instant::now(),
+        });
         cx.notify();
     }
-
 
     // ── Gestures ───────────────────────────────────────────────────────────
     //
@@ -265,7 +272,12 @@ impl<A: Asset> Document<A> {
             return;
         }
         self.status = None;
-        lock(&self.history).push(AssetEdit { other: before, label, key: None, at: Instant::now() });
+        lock(&self.history).push(AssetEdit {
+            other: before,
+            label,
+            key: None,
+            at: Instant::now(),
+        });
         cx.notify();
     }
 
@@ -328,7 +340,9 @@ impl<A: Asset> Document<A> {
     // ── Files ──────────────────────────────────────────────────────────────
 
     pub fn save(&mut self, cx: &mut Context<Self>) {
-        let Some(path) = self.path.clone() else { return };
+        let Some(path) = self.path.clone() else {
+            return;
+        };
         if self.unreadable.is_some() {
             return;
         }
@@ -380,7 +394,12 @@ mod tests {
         let push = |asset: &mut WidgetAsset, key: Option<&'static str>, width: f32| {
             let before = asset.clone();
             asset.design_size.x = width;
-            lock(&history).push(AssetEdit { other: before, label: "size", key, at: Instant::now() });
+            lock(&history).push(AssetEdit {
+                other: before,
+                label: "size",
+                key,
+                at: Instant::now(),
+            });
         };
         push(&mut asset, Some("w"), 1000.0);
         push(&mut asset, Some("w"), 1100.0);
@@ -392,7 +411,11 @@ mod tests {
         swap_back(&history, &mut asset);
         assert_eq!(asset.design_size.x, 1200.0);
         swap_back(&history, &mut asset);
-        assert_eq!(asset.design_size.x, WidgetAsset::DEFAULT_SIZE.x, "undo restores the state before the whole drag");
+        assert_eq!(
+            asset.design_size.x,
+            WidgetAsset::DEFAULT_SIZE.x,
+            "undo restores the state before the whole drag"
+        );
     }
 
     #[test]
@@ -408,15 +431,25 @@ mod tests {
         std::fs::write(&broken, "{ definitely not json").unwrap();
         let doc = Document::<WidgetAsset>::open(Some(broken.clone()));
         assert!(doc.unreadable().is_some());
-        assert!(!doc.can_save(), "must not overwrite a file it couldn't read");
-        assert_eq!(std::fs::read_to_string(&broken).unwrap(), "{ definitely not json");
+        assert!(
+            !doc.can_save(),
+            "must not overwrite a file it couldn't read"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&broken).unwrap(),
+            "{ definitely not json"
+        );
 
         // A file created from the template has no id; opening it writes one.
         let fresh = dir.join("fresh.widget");
         std::fs::write(&fresh, "").unwrap();
         let doc = Document::<WidgetAsset>::open(Some(fresh.clone()));
         let on_disk = WidgetAsset::peek_id(&std::fs::read_to_string(&fresh).unwrap());
-        assert_eq!(on_disk.as_ref(), Some(&doc.asset().id), "the id is written when the file is opened");
+        assert_eq!(
+            on_disk.as_ref(),
+            Some(&doc.asset().id),
+            "the id is written when the file is opened"
+        );
         assert!(!doc.is_dirty(), "stamping an id is not an unsaved change");
 
         // Opening it again keeps the id.

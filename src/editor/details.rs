@@ -13,7 +13,9 @@ use ui::menu::DropdownMenu;
 use ui::scroll::ScrollbarAxis;
 use ui::switch::Switch;
 use ui::tag::Tag;
-use ui::{h_flex, v_flex, ActiveTheme, Disableable, Icon, IconName, Selectable, Sizable, StyledExt};
+use ui::{
+    h_flex, v_flex, ActiveTheme, Disableable, Icon, IconName, Selectable, Sizable, StyledExt,
+};
 
 use crate::model::node::{Arg, Node};
 use crate::model::schema::{Children, PropDef, PropType, SlotKind};
@@ -53,7 +55,14 @@ impl DetailsPanel {
             }),
         ];
         let fields = Fields::new(ctx.lib.read(cx).root().to_path_buf());
-        Self { ctx, fields, filter, collapsed: HashSet::new(), focus_handle: cx.focus_handle(), _subscriptions: subscriptions }
+        Self {
+            ctx,
+            fields,
+            filter,
+            collapsed: HashSet::new(),
+            focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
+        }
     }
 
     // ── Reading the model ──────────────────────────────────────────────────
@@ -67,12 +76,22 @@ impl DetailsPanel {
         let id = self.ctx.primary(cx)?;
         let widget = self.ctx.widget(cx);
         let node = widget.node(id)?;
-        Some(node.slot_view(widget.slot_kind_of(id)).json(key).into_owned())
+        Some(
+            node.slot_view(widget.slot_kind_of(id))
+                .json(key)
+                .into_owned(),
+        )
     }
 
     // ── Pieces ─────────────────────────────────────────────────────────────
 
-    fn section(&mut self, id: &str, title: impl Into<SharedString>, body: Vec<AnyElement>, cx: &mut Context<Self>) -> AnyElement {
+    fn section(
+        &mut self,
+        id: &str,
+        title: impl Into<SharedString>,
+        body: Vec<AnyElement>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let theme = cx.theme().clone();
         let open = !self.collapsed.contains(id);
         let key = id.to_string();
@@ -90,8 +109,22 @@ impl DetailsPanel {
                     .items_center()
                     .cursor_pointer()
                     .hover(|s| s.bg(theme.list_hover))
-                    .child(Icon::new(if open { IconName::ChevronDown } else { IconName::ChevronRight }).size(px(12.0)).text_color(theme.muted_foreground))
-                    .child(div().text_xs().font_semibold().text_color(theme.foreground).child(title.into()))
+                    .child(
+                        Icon::new(if open {
+                            IconName::ChevronDown
+                        } else {
+                            IconName::ChevronRight
+                        })
+                        .size(px(12.0))
+                        .text_color(theme.muted_foreground),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_semibold()
+                            .text_color(theme.foreground)
+                            .child(title.into()),
+                    )
                     .on_click(cx.listener(move |this, _, _, cx| {
                         if !this.collapsed.remove(&key) {
                             this.collapsed.insert(key.clone());
@@ -103,7 +136,14 @@ impl DetailsPanel {
             .into_any_element()
     }
 
-    fn labelled(&self, label: impl Into<SharedString>, tip: &str, control: AnyElement, trailing: Option<AnyElement>, cx: &App) -> AnyElement {
+    fn labelled(
+        &self,
+        label: impl Into<SharedString>,
+        tip: &str,
+        control: AnyElement,
+        trailing: Option<AnyElement>,
+        cx: &App,
+    ) -> AnyElement {
         let theme = cx.theme();
         let tip = tip.to_string();
         h_flex()
@@ -121,7 +161,11 @@ impl DetailsPanel {
                     .text_color(theme.muted_foreground)
                     .truncate()
                     .child(label)
-                    .when(!tip.is_empty(), |d| d.tooltip(move |window, cx| ui::tooltip::Tooltip::new(tip.clone()).build(window, cx)))
+                    .when(!tip.is_empty(), |d| {
+                        d.tooltip(move |window, cx| {
+                            ui::tooltip::Tooltip::new(tip.clone()).build(window, cx)
+                        })
+                    })
             })
             .child(control)
             .children(trailing.map(|t| div().flex_shrink_0().child(t)))
@@ -130,16 +174,29 @@ impl DetailsPanel {
 
     // ── A property ─────────────────────────────────────────────────────────
 
-    fn prop_row(&mut self, node: &Node, def: &'static PropDef, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn prop_row(
+        &mut self,
+        node: &Node,
+        def: &'static PropDef,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let key = def.key;
         let widget = self.ctx.widget(cx);
-        let driver = widget.driver_of(node.id, key).map(|p| (p.id, p.name.clone(), p.default.clone()));
+        let driver = widget
+            .driver_of(node.id, key)
+            .map(|p| (p.id, p.name.clone(), p.default.clone()));
         let set_here = node.props.get(key).is_some_and(|v| !v.is_null());
         let current = match &driver {
             Some((_, _, default)) => default.clone(),
             None => node.view().json(key).into_owned(),
         };
-        let compatible: Vec<(ParamId, String)> = widget.parameters.iter().filter(|p| p.class == def.ty.class()).map(|p| (p.id, p.name.clone())).collect();
+        let compatible: Vec<(ParamId, String)> = widget
+            .parameters
+            .iter()
+            .filter(|p| p.class == def.ty.class())
+            .map(|p| (p.id, p.name.clone()))
+            .collect();
 
         let is_image = matches!(def.ty, PropType::Image);
         let ctx = self.ctx.clone();
@@ -160,7 +217,17 @@ impl DetailsPanel {
                 };
                 this.ctx.clone().set_prop(key, value, cx);
             };
-            let editor = value_editor(&mut self.fields, &format!("p:{key}"), def.ty, &current, driver.is_some(), get, set, window, cx);
+            let editor = value_editor(
+                &mut self.fields,
+                &format!("p:{key}"),
+                def.ty,
+                &current,
+                driver.is_some(),
+                get,
+                set,
+                window,
+                cx,
+            );
             if def.optional {
                 let ctx = ctx.clone();
                 h_flex()
@@ -168,7 +235,11 @@ impl DetailsPanel {
                     .min_w_0()
                     .gap_1p5()
                     .items_start()
-                    .child(Switch::new(SharedString::from(format!("opt-{key}"))).checked(true).on_click(move |_, _, cx| ctx.reset_prop(key, cx)))
+                    .child(
+                        Switch::new(SharedString::from(format!("opt-{key}")))
+                            .checked(true)
+                            .on_click(move |_, _, cx| ctx.reset_prop(key, cx)),
+                    )
                     .child(editor)
                     .into_any_element()
             } else {
@@ -176,13 +247,25 @@ impl DetailsPanel {
             }
         };
 
-        let menu = self.prop_menu(node.id, def, set_here, driver.clone().map(|(id, name, _)| (id, name)), compatible);
+        let menu = self.prop_menu(
+            node.id,
+            def,
+            set_here,
+            driver.clone().map(|(id, name, _)| (id, name)),
+            compatible,
+        );
         let tip = match &driver {
-            Some((_, name, _)) => format!("Driven by the parameter {name}. Change its default in the Parameters panel."),
+            Some((_, name, _)) => format!(
+                "Driven by the parameter {name}. Change its default in the Parameters panel."
+            ),
             None => def.tip.to_string(),
         };
         self.labelled(
-            if driver.is_some() { SharedString::from(format!("\u{1f517} {}", def.label)) } else { SharedString::from(def.label) },
+            if driver.is_some() {
+                SharedString::from(format!("\u{1f517} {}", def.label))
+            } else {
+                SharedString::from(def.label)
+            },
             &tip,
             control,
             Some(menu),
@@ -190,7 +273,14 @@ impl DetailsPanel {
         )
     }
 
-    fn prop_menu(&self, node: crate::model::NodeId, def: &'static PropDef, set_here: bool, driver: Option<(ParamId, String)>, compatible: Vec<(ParamId, String)>) -> AnyElement {
+    fn prop_menu(
+        &self,
+        node: crate::model::NodeId,
+        def: &'static PropDef,
+        set_here: bool,
+        driver: Option<(ParamId, String)>,
+        compatible: Vec<(ParamId, String)>,
+    ) -> AnyElement {
         let ctx = self.ctx.clone();
         let key = def.key;
         Button::new(SharedString::from(format!("menu-{key}")))
@@ -200,12 +290,19 @@ impl DetailsPanel {
             .popup_menu(move |menu, window, cx| {
                 let mut menu = menu;
                 let c = ctx.clone();
-                menu = menu.menu_handler_with_icon_and_disabled("Reset to default", IconName::Undo, !set_here, move |_, cx| c.reset_prop(key, cx));
+                menu = menu.menu_handler_with_icon_and_disabled(
+                    "Reset to default",
+                    IconName::Undo,
+                    !set_here,
+                    move |_, cx| c.reset_prop(key, cx),
+                );
                 menu = menu.separator();
                 match &driver {
                     Some((_, name)) => {
                         let c = ctx.clone();
-                        menu = menu.menu_handler(format!("Unlink from {name}"), move |_, cx| c.unlink_property(node, key, cx));
+                        menu = menu.menu_handler(format!("Unlink from {name}"), move |_, cx| {
+                            c.unlink_property(node, key, cx)
+                        });
                     }
                     None => {
                         let c = ctx.clone();
@@ -214,13 +311,20 @@ impl DetailsPanel {
                         });
                         if !compatible.is_empty() {
                             let (c, list) = (ctx.clone(), compatible.clone());
-                            menu = menu.submenu("Link to parameter", window, cx, move |mut m, _, _| {
-                                for (id, name) in &list {
-                                    let (c, id) = (c.clone(), *id);
-                                    m = m.menu_handler(name.clone(), move |_, cx| c.link_parameter(id, node, key, cx));
-                                }
-                                m
-                            });
+                            menu = menu.submenu(
+                                "Link to parameter",
+                                window,
+                                cx,
+                                move |mut m, _, _| {
+                                    for (id, name) in &list {
+                                        let (c, id) = (c.clone(), *id);
+                                        m = m.menu_handler(name.clone(), move |_, cx| {
+                                            c.link_parameter(id, node, key, cx)
+                                        });
+                                    }
+                                    m
+                                },
+                            );
                         }
                     }
                 }
@@ -240,7 +344,12 @@ impl DetailsPanel {
             false,
             "Name",
             &node.name,
-            |this, cx| this.ctx.primary(cx).and_then(|id| this.ctx.widget(cx).node(id)).map(|n| n.name.clone()),
+            |this, cx| {
+                this.ctx
+                    .primary(cx)
+                    .and_then(|id| this.ctx.widget(cx).node(id))
+                    .map(|n| n.name.clone())
+            },
             |this, text, cx| {
                 if let Some(id) = this.ctx.primary(cx) {
                     this.ctx.rename(id, &text, cx);
@@ -261,15 +370,44 @@ impl DetailsPanel {
                 h_flex()
                     .gap_2()
                     .items_center()
-                    .child(Icon::new(kind_icon(node.kind)).size(px(18.0)).text_color(theme.info))
-                    .child(div().flex_1().min_w_0().child(TextInput::new(&name).small()))
+                    .child(
+                        Icon::new(kind_icon(node.kind))
+                            .size(px(18.0))
+                            .text_color(theme.info),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(TextInput::new(&name).small()),
+                    )
                     .child({
                         let ctx = ctx.clone();
-                        Button::new("details-hidden").icon(if node.editor.hidden { IconName::EyeOff } else { IconName::Eye }).ghost().small().selected(node.editor.hidden).tooltip("Hide in the designer").on_click(move |_, _, cx| ctx.toggle_hidden(id, cx))
+                        Button::new("details-hidden")
+                            .icon(if node.editor.hidden {
+                                IconName::EyeOff
+                            } else {
+                                IconName::Eye
+                            })
+                            .ghost()
+                            .small()
+                            .selected(node.editor.hidden)
+                            .tooltip("Hide in the designer")
+                            .on_click(move |_, _, cx| ctx.toggle_hidden(id, cx))
                     })
                     .child({
                         let ctx = ctx.clone();
-                        Button::new("details-locked").icon(if node.editor.locked { IconName::Lock } else { IconName::LockSlash }).ghost().small().selected(node.editor.locked).tooltip("Lock in the designer").on_click(move |_, _, cx| ctx.toggle_locked(id, cx))
+                        Button::new("details-locked")
+                            .icon(if node.editor.locked {
+                                IconName::Lock
+                            } else {
+                                IconName::LockSlash
+                            })
+                            .ghost()
+                            .small()
+                            .selected(node.editor.locked)
+                            .tooltip("Lock in the designer")
+                            .on_click(move |_, _, cx| ctx.toggle_locked(id, cx))
                     }),
             )
             .child(
@@ -277,17 +415,34 @@ impl DetailsPanel {
                     .gap_1p5()
                     .items_center()
                     .child(Tag::secondary().small().child(info.label))
-                    .children((multiple > 1).then(|| Tag::info().small().child(format!("{multiple} selected: edits apply to all")))),
+                    .children((multiple > 1).then(|| {
+                        Tag::info()
+                            .small()
+                            .child(format!("{multiple} selected: edits apply to all"))
+                    })),
             )
-            .child(div().text_xs().text_color(theme.muted_foreground).child(info.description))
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child(info.description),
+            )
             .into_any_element()
     }
 
-    fn property_sections(&mut self, node: &Node, window: &mut Window, cx: &mut Context<Self>) -> Vec<AnyElement> {
+    fn property_sections(
+        &mut self,
+        node: &Node,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
         let query = self.filter.read(cx).value().trim().to_lowercase();
         let info = node.info();
         // The kind's own categories first, then the ones every widget has.
-        let common: HashSet<&str> = crate::model::schema::COMMON.iter().map(|d| d.category).collect();
+        let common: HashSet<&str> = crate::model::schema::COMMON
+            .iter()
+            .map(|d| d.category)
+            .collect();
         let mut order: Vec<&'static str> = Vec::new();
         for def in &info.props {
             if !common.contains(def.category) && !order.contains(&def.category) {
@@ -305,12 +460,19 @@ impl DetailsPanel {
                 .props
                 .iter()
                 .filter(|d| d.category == category)
-                .filter(|d| query.is_empty() || d.label.to_lowercase().contains(&query) || category.to_lowercase().contains(&query))
+                .filter(|d| {
+                    query.is_empty()
+                        || d.label.to_lowercase().contains(&query)
+                        || category.to_lowercase().contains(&query)
+                })
                 .collect();
             if defs.is_empty() {
                 continue;
             }
-            let rows: Vec<AnyElement> = defs.into_iter().map(|d| self.prop_row(node, d, window, cx)).collect();
+            let rows: Vec<AnyElement> = defs
+                .into_iter()
+                .map(|d| self.prop_row(node, d, window, cx))
+                .collect();
             sections.push(self.section(&format!("cat-{category}"), category, rows, cx));
         }
         sections
@@ -318,7 +480,13 @@ impl DetailsPanel {
 
     // ── Layout in the parent ───────────────────────────────────────────────
 
-    fn slot_section(&mut self, node: &Node, parent_kind: SlotKind, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+    fn slot_section(
+        &mut self,
+        node: &Node,
+        parent_kind: SlotKind,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         if parent_kind == SlotKind::None {
             return None;
         }
@@ -329,18 +497,36 @@ impl DetailsPanel {
             rows.push(self.offsets_editor(node, window, cx));
         }
         for def in parent_kind.props() {
-            if parent_kind == SlotKind::Canvas && def.key == "offsets" || def.key == "anchor_min" || def.key == "anchor_max" {
+            if parent_kind == SlotKind::Canvas && def.key == "offsets"
+                || def.key == "anchor_min"
+                || def.key == "anchor_max"
+            {
                 continue;
             }
-            if !query.is_empty() && !def.label.to_lowercase().contains(&query) && !"layout slot".contains(&query) {
+            if !query.is_empty()
+                && !def.label.to_lowercase().contains(&query)
+                && !"layout slot".contains(&query)
+            {
                 continue;
             }
             let key = def.key;
             let current = node.slot_view(parent_kind).json(key).into_owned();
             let is_set = node.slot.get(key).is_some();
             let get = move |this: &Self, cx: &App| this.slot_json(key, cx);
-            let set = move |this: &mut Self, value: Json, cx: &mut Context<Self>| this.ctx.clone().set_slot_prop(key, value, cx);
-            let editor = value_editor(&mut self.fields, &format!("s:{key}"), def.ty, &current, false, get, set, window, cx);
+            let set = move |this: &mut Self, value: Json, cx: &mut Context<Self>| {
+                this.ctx.clone().set_slot_prop(key, value, cx)
+            };
+            let editor = value_editor(
+                &mut self.fields,
+                &format!("s:{key}"),
+                def.ty,
+                &current,
+                false,
+                get,
+                set,
+                window,
+                cx,
+            );
             let ctx = self.ctx.clone();
             let reset = Button::new(SharedString::from(format!("reset-slot-{key}")))
                 .icon(IconName::Undo)
@@ -379,12 +565,25 @@ impl DetailsPanel {
                         .rounded(px(4.0))
                         .border_1()
                         .border_color(if selected { theme.info } else { theme.border })
-                        .bg(if selected { theme.info.opacity(0.18) } else { theme.secondary })
+                        .bg(if selected {
+                            theme.info.opacity(0.18)
+                        } else {
+                            theme.secondary
+                        })
                         .cursor_pointer()
                         .hover(|s| s.bg(theme.list_hover))
-                        .child(anchor_glyph(preset, selected, theme.info, theme.muted_foreground))
-                        .tooltip(move |window, cx| ui::tooltip::Tooltip::new(tip.clone()).build(window, cx))
-                        .on_click(move |event, _, cx| ctx.set_anchors(preset, !event.modifiers().shift, cx)),
+                        .child(anchor_glyph(
+                            preset,
+                            selected,
+                            theme.info,
+                            theme.muted_foreground,
+                        ))
+                        .tooltip(move |window, cx| {
+                            ui::tooltip::Tooltip::new(tip.clone()).build(window, cx)
+                        })
+                        .on_click(move |event, _, cx| {
+                            ctx.set_anchors(preset, !event.modifiers().shift, cx)
+                        }),
                 );
             }
             grid = grid.child(line);
@@ -398,41 +597,81 @@ impl DetailsPanel {
                 v_flex()
                     .flex_1()
                     .gap_1()
-                    .child(div().text_xs().font_semibold().text_color(theme.foreground).child("Anchors"))
-                    .child(div().text_xs().text_color(theme.muted_foreground).child(match current {
-                        Some(p) => p.label(),
-                        None => "Custom anchors".to_string(),
-                    }))
-                    .child(div().text_xs().text_color(theme.muted_foreground).child("Click to pin the widget to the panel. Shift keeps its alignment.")),
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_semibold()
+                            .text_color(theme.foreground)
+                            .child("Anchors"),
+                    )
+                    .child(div().text_xs().text_color(theme.muted_foreground).child(
+                        match current {
+                            Some(p) => p.label(),
+                            None => "Custom anchors".to_string(),
+                        },
+                    ))
+                    .child(
+                        div().text_xs().text_color(theme.muted_foreground).child(
+                            "Click to pin the widget to the panel. Shift keeps its alignment.",
+                        ),
+                    ),
             )
             .into_any_element()
     }
 
     /// The canvas offsets, labelled for what they mean given the anchors.
-    fn offsets_editor(&mut self, node: &Node, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    fn offsets_editor(
+        &mut self,
+        node: &Node,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let v = node.slot_view(SlotKind::Canvas);
         let (amin, amax) = (v.vec2("anchor_min"), v.vec2("anchor_max"));
         let offsets = v.quad("offsets");
-        let (stretch_x, stretch_y) = ((amin.x - amax.x).abs() > 1e-6, (amin.y - amax.y).abs() > 1e-6);
+        let (stretch_x, stretch_y) = (
+            (amin.x - amax.x).abs() > 1e-6,
+            (amin.y - amax.y).abs() > 1e-6,
+        );
         let auto = v.bool("auto_size");
         // Position and size, or margins, per axis.
         let cells: [(&str, usize, bool); 4] = [
             (if stretch_x { "Left" } else { "X" }, 0, false),
             (if stretch_y { "Top" } else { "Y" }, 1, false),
-            (if stretch_x { "Right" } else { "Width" }, 2, !stretch_x && auto),
-            (if stretch_y { "Bottom" } else { "Height" }, 3, !stretch_y && auto),
+            (
+                if stretch_x { "Right" } else { "Width" },
+                2,
+                !stretch_x && auto,
+            ),
+            (
+                if stretch_y { "Bottom" } else { "Height" },
+                3,
+                !stretch_y && auto,
+            ),
         ];
         let theme = cx.theme().clone();
-        let spec = NumberSpec { step: 1.0, min: -100_000.0, max: 100_000.0, decimals: 1 };
+        let spec = NumberSpec {
+            step: 1.0,
+            min: -100_000.0,
+            max: 100_000.0,
+            decimals: 1,
+        };
         let mut inputs = Vec::new();
         for (label, i, disabled) in cells {
             let input = self.fields.number(
                 format!("s:offsets:{i}"),
                 spec,
                 Some(offsets[i]),
-                move |this, cx| this.slot_json("offsets", cx).and_then(|j| crate::model::geom::json_array4(&j)).map(|a| a[i]),
+                move |this, cx| {
+                    this.slot_json("offsets", cx)
+                        .and_then(|j| crate::model::geom::json_array4(&j))
+                        .map(|a| a[i])
+                },
                 move |this, v, cx| {
-                    let mut o = this.slot_json("offsets", cx).and_then(|j| crate::model::geom::json_array4(&j)).unwrap_or([0.0; 4]);
+                    let mut o = this
+                        .slot_json("offsets", cx)
+                        .and_then(|j| crate::model::geom::json_array4(&j))
+                        .unwrap_or([0.0; 4]);
                     o[i] = v;
                     this.ctx.clone().set_slot_prop("offsets", json!(o), cx);
                 },
@@ -444,7 +683,14 @@ impl DetailsPanel {
                     .w(px(1.0))
                     .flex_1()
                     .min_w_0()
-                    .child(NumberInput::new(&input).small().disabled(disabled).prefix(div().text_xs().text_color(theme.muted_foreground).child(label)))
+                    .child(
+                        NumberInput::new(&input).small().disabled(disabled).prefix(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child(label),
+                        ),
+                    )
                     .into_any_element(),
             );
         }
@@ -459,17 +705,28 @@ impl DetailsPanel {
 
     // ── Instances ──────────────────────────────────────────────────────────
 
-    fn instance_section(&mut self, node: &Node, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+    fn instance_section(
+        &mut self,
+        node: &Node,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let instance = node.instance.as_ref()?;
         let theme = cx.theme().clone();
         let library = self.ctx.lib.read(cx).library();
         let target = library.widget(&instance.widget);
         let path = library.path_of(&instance.widget).map(|p| p.to_path_buf());
         let ambiguous = library.is_ambiguous(&instance.widget);
-        let name = library.name(&instance.widget).unwrap_or_else(|| instance.name_hint.clone());
+        let name = library
+            .name(&instance.widget)
+            .unwrap_or_else(|| instance.name_hint.clone());
         let id = node.id;
         let this_widget = self.ctx.widget(cx);
-        let this_params: Vec<(ParamId, String, crate::model::ValueClass)> = this_widget.parameters.iter().map(|p| (p.id, p.name.clone(), p.class)).collect();
+        let this_params: Vec<(ParamId, String, crate::model::ValueClass)> = this_widget
+            .parameters
+            .iter()
+            .map(|p| (p.id, p.name.clone(), p.class))
+            .collect();
 
         let mut rows: Vec<AnyElement> = Vec::new();
         let status = if ambiguous {
@@ -481,11 +738,17 @@ impl DetailsPanel {
         };
 
         // Which widget, with Open and Replace.
-        let others: Vec<(crate::model::WidgetId, String)> = library.entries().iter().map(|e| (e.id.clone(), e.name.clone())).collect();
+        let others: Vec<(crate::model::WidgetId, String)> = library
+            .entries()
+            .iter()
+            .map(|e| (e.id.clone(), e.name.clone()))
+            .collect();
         let this_id = this_widget.id.clone();
         let current_library = self.ctx.library_now(cx);
-        let others: Vec<(crate::model::WidgetId, String)> =
-            others.into_iter().filter(|(w, _)| !crate::model::validate::would_cycle(&current_library, &this_id, w)).collect();
+        let others: Vec<(crate::model::WidgetId, String)> = others
+            .into_iter()
+            .filter(|(w, _)| !crate::model::validate::would_cycle(&current_library, &this_id, w))
+            .collect();
         let ctx = self.ctx.clone();
         let replace = Button::new("instance-replace")
             .label("Replace")
@@ -495,22 +758,57 @@ impl DetailsPanel {
                 let mut menu = menu;
                 for (target, name) in &others {
                     let (c, t, n) = (ctx.clone(), target.clone(), name.clone());
-                    menu = menu.menu_handler(name.clone(), move |_, cx| c.retarget_instance(id, &t, &n, cx));
+                    menu = menu.menu_handler(name.clone(), move |_, cx| {
+                        c.retarget_instance(id, &t, &n, cx)
+                    });
                 }
                 menu
             });
-        let open = Button::new("instance-open").label("Open").small().outline().disabled(path.is_none()).on_click(move |_, window, cx| {
-            if let Some(path) = &path {
-                window.dispatch_action(Box::new(OpenAsset { path: path.clone() }), cx);
-            }
-        });
+        let open = Button::new("instance-open")
+            .label("Open")
+            .small()
+            .outline()
+            .disabled(path.is_none())
+            .on_click(move |_, window, cx| {
+                if let Some(path) = &path {
+                    window.dispatch_action(Box::new(OpenAsset { path: path.clone() }), cx);
+                }
+            });
         rows.push(
             v_flex()
                 .w_full()
                 .gap_1p5()
-                .child(h_flex().gap_2().items_center().child(Icon::new(IconName::Component).size(px(15.0)).text_color(theme.info)).child(div().flex_1().min_w_0().text_sm().text_color(theme.foreground).truncate().child(if name.is_empty() { "(unnamed)".to_string() } else { name })).child(status))
+                .child(
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .child(
+                            Icon::new(IconName::Component)
+                                .size(px(15.0))
+                                .text_color(theme.info),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .text_sm()
+                                .text_color(theme.foreground)
+                                .truncate()
+                                .child(if name.is_empty() {
+                                    "(unnamed)".to_string()
+                                } else {
+                                    name
+                                }),
+                        )
+                        .child(status),
+                )
                 .child(h_flex().gap_1().child(open).child(replace))
-                .child(div().text_xs().text_color(theme.muted_foreground).child(format!("Refers to id {}", instance.widget.short())))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("Refers to id {}", instance.widget.short())),
+                )
                 .into_any_element(),
         );
 
@@ -526,7 +824,10 @@ impl DetailsPanel {
                     _ => param.default.clone(),
                 };
                 let control = if let Some(Arg::Bind(outer)) = &arg {
-                    let outer_name = this_params.iter().find(|(i, _, _)| i == outer).map_or("(missing parameter)".to_string(), |(_, n, _)| n.clone());
+                    let outer_name = this_params
+                        .iter()
+                        .find(|(i, _, _)| i == outer)
+                        .map_or("(missing parameter)".to_string(), |(_, n, _)| n.clone());
                     h_flex()
                         .flex_1()
                         .min_w_0()
@@ -536,8 +837,18 @@ impl DetailsPanel {
                         .py_1()
                         .rounded(px(5.0))
                         .bg(theme.info.opacity(0.12))
-                        .child(Icon::new(IconName::Link).size(px(12.0)).text_color(theme.info))
-                        .child(div().text_xs().text_color(theme.foreground).truncate().child(outer_name))
+                        .child(
+                            Icon::new(IconName::Link)
+                                .size(px(12.0))
+                                .text_color(theme.info),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.foreground)
+                                .truncate()
+                                .child(outer_name),
+                        )
                         .into_any_element()
                 } else {
                     let get = move |this: &Self, cx: &App| {
@@ -549,14 +860,30 @@ impl DetailsPanel {
                     };
                     let set = move |this: &mut Self, value: Json, cx: &mut Context<Self>| {
                         if let Some(id) = this.ctx.primary(cx) {
-                            this.ctx.clone().set_override(id, pid, Some(Arg::Value(value)), cx);
+                            this.ctx
+                                .clone()
+                                .set_override(id, pid, Some(Arg::Value(value)), cx);
                         }
                     };
-                    value_editor(&mut self.fields, &format!("o:{}", pid.0), ty, &current, false, get, set, window, cx)
+                    value_editor(
+                        &mut self.fields,
+                        &format!("o:{}", pid.0),
+                        ty,
+                        &current,
+                        false,
+                        get,
+                        set,
+                        window,
+                        cx,
+                    )
                 };
 
                 let ctx = self.ctx.clone();
-                let compatible: Vec<(ParamId, String)> = this_params.iter().filter(|(_, _, c)| *c == param.class).map(|(i, n, _)| (*i, n.clone())).collect();
+                let compatible: Vec<(ParamId, String)> = this_params
+                    .iter()
+                    .filter(|(_, _, c)| *c == param.class)
+                    .map(|(i, n, _)| (*i, n.clone()))
+                    .collect();
                 let overridden = arg.is_some();
                 let menu = Button::new(SharedString::from(format!("override-menu-{}", pid.0)))
                     .icon(IconName::EllipsisVertical)
@@ -565,27 +892,53 @@ impl DetailsPanel {
                     .popup_menu(move |menu, window, cx| {
                         let mut menu = menu;
                         let c = ctx.clone();
-                        menu = menu.menu_handler_with_icon_and_disabled("Use the default", IconName::Undo, !overridden, move |_, cx| c.set_override(id, pid, None, cx));
+                        menu = menu.menu_handler_with_icon_and_disabled(
+                            "Use the default",
+                            IconName::Undo,
+                            !overridden,
+                            move |_, cx| c.set_override(id, pid, None, cx),
+                        );
                         if bound {
                             let c = ctx.clone();
-                            menu = menu.menu_handler("Stop passing a parameter", move |_, cx| c.set_override(id, pid, None, cx));
+                            menu = menu.menu_handler("Stop passing a parameter", move |_, cx| {
+                                c.set_override(id, pid, None, cx)
+                            });
                         } else if !compatible.is_empty() {
                             let (c, list) = (ctx.clone(), compatible.clone());
-                            menu = menu.submenu("Pass one of this widget's parameters", window, cx, move |mut m, _, _| {
-                                for (outer, name) in &list {
-                                    let (c, outer) = (c.clone(), *outer);
-                                    m = m.menu_handler(name.clone(), move |_, cx| c.set_override(id, pid, Some(Arg::Bind(outer)), cx));
-                                }
-                                m
-                            });
+                            menu = menu.submenu(
+                                "Pass one of this widget's parameters",
+                                window,
+                                cx,
+                                move |mut m, _, _| {
+                                    for (outer, name) in &list {
+                                        let (c, outer) = (c.clone(), *outer);
+                                        m = m.menu_handler(name.clone(), move |_, cx| {
+                                            c.set_override(id, pid, Some(Arg::Bind(outer)), cx)
+                                        });
+                                    }
+                                    m
+                                },
+                            );
                         }
                         menu
                     })
                     .into_any_element();
-                rows.push(self.labelled(param.name.clone(), &param.description, control, Some(menu), cx));
+                rows.push(self.labelled(
+                    param.name.clone(),
+                    &param.description,
+                    control,
+                    Some(menu),
+                    cx,
+                ));
             }
             if target.parameters.is_empty() {
-                rows.push(div().text_xs().text_color(theme.muted_foreground).child("This widget has no parameters.").into_any_element());
+                rows.push(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("This widget has no parameters.")
+                        .into_any_element(),
+                );
             }
             let slots = target.slot_names();
             if !slots.is_empty() {
@@ -597,13 +950,20 @@ impl DetailsPanel {
 
     /// For a child of an instance: which of the instance's slots it fills.
     fn slot_assignment(&mut self, node: &Node, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let parent = self.ctx.widget(cx).parent_of(node.id).and_then(|p| self.ctx.widget(cx).node(p))?;
+        let parent = self
+            .ctx
+            .widget(cx)
+            .parent_of(node.id)
+            .and_then(|p| self.ctx.widget(cx).node(p))?;
         let instance = parent.instance.as_ref()?;
         let target = self.ctx.lib.read(cx).library().widget(&instance.widget)?;
         let slots = target.slot_names();
         let ctx = self.ctx.clone();
         let id = node.id;
-        let current = node.for_slot.clone().unwrap_or_else(|| "(none)".to_string());
+        let current = node
+            .for_slot
+            .clone()
+            .unwrap_or_else(|| "(none)".to_string());
         let control = Button::new("fills-slot")
             .label(current)
             .small()
@@ -615,17 +975,25 @@ impl DetailsPanel {
                     let (c, slot) = (ctx.clone(), slot.clone());
                     menu = menu.menu_handler(slot.clone(), move |_, cx| {
                         let slot = slot.clone();
-                        c.doc.update(cx, |d, cx| d.edit("Fill slot", None, cx, |w| {
-                            if let Some(n) = w.node_mut(id) {
-                                n.for_slot = Some(slot);
-                            }
-                        }));
+                        c.doc.update(cx, |d, cx| {
+                            d.edit("Fill slot", None, cx, |w| {
+                                if let Some(n) = w.node_mut(id) {
+                                    n.for_slot = Some(slot);
+                                }
+                            })
+                        });
                     });
                 }
                 menu
             })
             .into_any_element();
-        let row = self.labelled("Fills slot", "Which of the parent widget's named slots this goes in", control, None, cx);
+        let row = self.labelled(
+            "Fills slot",
+            "Which of the parent widget's named slots this goes in",
+            control,
+            None,
+            cx,
+        );
         Some(self.section("fills", "Slot", vec![row], cx))
     }
 
@@ -644,37 +1012,51 @@ impl DetailsPanel {
             &widget.description,
             |this, cx| Some(this.ctx.widget(cx).description.clone()),
             |this, text, cx| {
-                this.ctx.doc.update(cx, |d, cx| d.edit("Edit description", Some("description"), cx, |w| w.description = text));
+                this.ctx.doc.update(cx, |d, cx| {
+                    d.edit("Edit description", Some("description"), cx, |w| {
+                        w.description = text
+                    })
+                });
             },
             window,
             cx,
         );
-        let spec = NumberSpec { step: 10.0, min: 1.0, max: 16384.0, decimals: 0 };
-        let size_input = |this: &mut Self, axis: usize, window: &mut Window, cx: &mut Context<Self>| {
-            let value = if axis == 0 { widget.design_size.x } else { widget.design_size.y };
-            this.fields.number(
-                format!("design-size:{axis}"),
-                spec,
-                Some(value),
-                move |this, cx| {
-                    let s = this.ctx.widget(cx).design_size;
-                    Some(if axis == 0 { s.x } else { s.y })
-                },
-                move |this, v, cx| {
-                    this.ctx.doc.update(cx, |d, cx| {
-                        d.edit("Change design size", Some("design-size"), cx, |w| {
-                            if axis == 0 {
-                                w.design_size.x = v;
-                            } else {
-                                w.design_size.y = v;
-                            }
-                        })
-                    });
-                },
-                window,
-                cx,
-            )
+        let spec = NumberSpec {
+            step: 10.0,
+            min: 1.0,
+            max: 16384.0,
+            decimals: 0,
         };
+        let size_input =
+            |this: &mut Self, axis: usize, window: &mut Window, cx: &mut Context<Self>| {
+                let value = if axis == 0 {
+                    widget.design_size.x
+                } else {
+                    widget.design_size.y
+                };
+                this.fields.number(
+                    format!("design-size:{axis}"),
+                    spec,
+                    Some(value),
+                    move |this, cx| {
+                        let s = this.ctx.widget(cx).design_size;
+                        Some(if axis == 0 { s.x } else { s.y })
+                    },
+                    move |this, v, cx| {
+                        this.ctx.doc.update(cx, |d, cx| {
+                            d.edit("Change design size", Some("design-size"), cx, |w| {
+                                if axis == 0 {
+                                    w.design_size.x = v;
+                                } else {
+                                    w.design_size.y = v;
+                                }
+                            })
+                        });
+                    },
+                    window,
+                    cx,
+                )
+            };
         let width = size_input(self, 0, window, cx);
         let height = size_input(self, 1, window, cx);
 
@@ -711,7 +1093,11 @@ impl DetailsPanel {
             ),
         ];
 
-        let used_by: Vec<_> = library.used_by(&widget.id).into_iter().map(|e| (e.name.clone(), e.path.clone())).collect();
+        let used_by: Vec<_> = library
+            .used_by(&widget.id)
+            .into_iter()
+            .map(|e| (e.name.clone(), e.path.clone()))
+            .collect();
         let uses: Vec<(String, Option<std::path::PathBuf>, bool)> = widget
             .dependencies()
             .iter()
@@ -734,9 +1120,26 @@ impl DetailsPanel {
                 .px_1()
                 .py_0p5()
                 .rounded(px(4.0))
-                .when(path.is_some(), |d| d.cursor_pointer().hover(|s| s.bg(theme.list_hover)))
-                .child(Icon::new(if ok { IconName::Component } else { IconName::TriangleAlert }).size(px(13.0)).text_color(if ok { theme.info } else { theme.danger }))
-                .child(div().flex_1().text_sm().text_color(theme.foreground).truncate().child(label))
+                .when(path.is_some(), |d| {
+                    d.cursor_pointer().hover(|s| s.bg(theme.list_hover))
+                })
+                .child(
+                    Icon::new(if ok {
+                        IconName::Component
+                    } else {
+                        IconName::TriangleAlert
+                    })
+                    .size(px(13.0))
+                    .text_color(if ok { theme.info } else { theme.danger }),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .text_sm()
+                        .text_color(theme.foreground)
+                        .truncate()
+                        .child(label),
+                )
                 .on_click(move |_, window, cx| {
                     if let Some(path) = &path {
                         window.dispatch_action(Box::new(OpenAsset { path: path.clone() }), cx);
@@ -745,14 +1148,29 @@ impl DetailsPanel {
                 .into_any_element()
         };
         let used_rows: Vec<AnyElement> = if used_by.is_empty() {
-            vec![div().text_xs().text_color(theme.muted_foreground).child("No other widget uses this one yet.").into_any_element()]
+            vec![div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("No other widget uses this one yet.")
+                .into_any_element()]
         } else {
-            used_by.into_iter().enumerate().map(|(i, (name, path))| link_row(name, Some(path), true, i)).collect()
+            used_by
+                .into_iter()
+                .enumerate()
+                .map(|(i, (name, path))| link_row(name, Some(path), true, i))
+                .collect()
         };
         let uses_rows: Vec<AnyElement> = if uses.is_empty() {
-            vec![div().text_xs().text_color(theme.muted_foreground).child("This widget doesn't use other widgets.").into_any_element()]
+            vec![div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child("This widget doesn't use other widgets.")
+                .into_any_element()]
         } else {
-            uses.into_iter().enumerate().map(|(i, (name, path, ok))| link_row(name, path, ok, 100 + i)).collect()
+            uses.into_iter()
+                .enumerate()
+                .map(|(i, (name, path, ok))| link_row(name, path, ok, 100 + i))
+                .collect()
         };
 
         let slots = widget.slot_names();
@@ -760,7 +1178,15 @@ impl DetailsPanel {
             stat_row("Widgets", widget.root.count().to_string(), cx),
             stat_row("Nesting depth", widget.root.depth().to_string(), cx),
             stat_row("Parameters", widget.parameters.len().to_string(), cx),
-            stat_row("Named slots", if slots.is_empty() { "none".to_string() } else { slots.join(", ") }, cx),
+            stat_row(
+                "Named slots",
+                if slots.is_empty() {
+                    "none".to_string()
+                } else {
+                    slots.join(", ")
+                },
+                cx,
+            ),
         ];
 
         let _ = ctx;
@@ -790,13 +1216,30 @@ fn stat_row(label: &str, value: String, cx: &App) -> AnyElement {
     h_flex()
         .w_full()
         .gap_2()
-        .child(div().w(px(96.0)).text_xs().text_color(theme.muted_foreground).child(label.to_string()))
-        .child(div().flex_1().text_xs().text_color(theme.foreground).child(value))
+        .child(
+            div()
+                .w(px(96.0))
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(label.to_string()),
+        )
+        .child(
+            div()
+                .flex_1()
+                .text_xs()
+                .text_color(theme.foreground)
+                .child(value),
+        )
         .into_any_element()
 }
 
 /// A tiny picture of an anchor preset: the panel, with the pinned part filled.
-fn anchor_glyph(preset: AnchorPreset, selected: bool, accent: Hsla, muted: Hsla) -> impl IntoElement {
+fn anchor_glyph(
+    preset: AnchorPreset,
+    selected: bool,
+    accent: Hsla,
+    muted: Hsla,
+) -> impl IntoElement {
     let colour = if selected { accent } else { muted };
     let span = |pin: Pin| -> (f32, f32) {
         // (start, length) across the 26px cell, inside a 4px margin.
@@ -810,7 +1253,14 @@ fn anchor_glyph(preset: AnchorPreset, selected: bool, accent: Hsla, muted: Hsla)
     };
     let (x, w) = span(preset.h);
     let (y, h) = span(preset.v);
-    div().absolute().left(px(x)).top(px(y)).w(px(w)).h(px(h)).rounded(px(1.5)).bg(colour)
+    div()
+        .absolute()
+        .left(px(x))
+        .top(px(y))
+        .w(px(w))
+        .h(px(h))
+        .rounded(px(1.5))
+        .bg(colour)
 }
 
 /// What an optional property starts at when it is switched on.
@@ -829,7 +1279,9 @@ impl Render for DetailsPanel {
         let theme = cx.theme().clone();
         let primary = self.ctx.primary(cx);
         let node = primary.and_then(|id| self.ctx.widget(cx).node(id).cloned());
-        let parent_slot = primary.map(|id| self.ctx.widget(cx).slot_kind_of(id)).unwrap_or(SlotKind::None);
+        let parent_slot = primary
+            .map(|id| self.ctx.widget(cx).slot_kind_of(id))
+            .unwrap_or(SlotKind::None);
 
         let mut body: Vec<AnyElement> = Vec::new();
         let mut header = None;
@@ -841,7 +1293,14 @@ impl Render for DetailsPanel {
                 body.extend(self.slot_section(node, parent_slot, window, cx));
                 body.extend(self.property_sections(node, window, cx));
                 if node.info().children == Children::None && body.is_empty() {
-                    body.push(div().p_3().text_xs().text_color(theme.muted_foreground).child("Nothing to edit.").into_any_element());
+                    body.push(
+                        div()
+                            .p_3()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("Nothing to edit.")
+                            .into_any_element(),
+                    );
                 }
             }
             None => body = self.widget_settings(window, cx),
@@ -853,11 +1312,32 @@ impl Render for DetailsPanel {
             .track_focus(&self.focus_handle)
             .child(panel_header(IconName::Settings, "Details", None, cx))
             .children(header)
-            .children(node.is_some().then(|| div().px_2().py_1p5().border_b_1().border_color(theme.border.opacity(0.6)).child(TextInput::new(&self.filter).small().cleanable())))
+            .children(node.is_some().then(|| {
+                div()
+                    .px_2()
+                    .py_1p5()
+                    .border_b_1()
+                    .border_color(theme.border.opacity(0.6))
+                    .child(TextInput::new(&self.filter).small().cleanable())
+            }))
             .child(if body.is_empty() {
-                div().flex_1().child(empty_message(IconName::Search, "No matching properties", "Try another search", cx)).into_any_element()
+                div()
+                    .flex_1()
+                    .child(empty_message(
+                        IconName::Search,
+                        "No matching properties",
+                        "Try another search",
+                        cx,
+                    ))
+                    .into_any_element()
             } else {
-                v_flex().id("details-scroll").flex_1().min_h_0().scrollable(ScrollbarAxis::Vertical).children(body).into_any_element()
+                v_flex()
+                    .id("details-scroll")
+                    .flex_1()
+                    .min_h_0()
+                    .scrollable(ScrollbarAxis::Vertical)
+                    .children(body)
+                    .into_any_element()
             })
     }
 }

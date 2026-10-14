@@ -60,7 +60,10 @@ fn slot(w: &mut WidgetAsset, id: NodeId, key: &str, value: Value) {
 
 fn approx(a: Rect, b: Rect) {
     let close = |x: f32, y: f32| (x - y).abs() < 0.01;
-    assert!(close(a.x, b.x) && close(a.y, b.y) && close(a.w, b.w) && close(a.h, b.h), "{a:?} != {b:?}");
+    assert!(
+        close(a.x, b.x) && close(a.y, b.y) && close(a.w, b.w) && close(a.h, b.h),
+        "{a:?} != {b:?}"
+    );
 }
 
 #[test]
@@ -280,7 +283,10 @@ fn a_scale_box_scales_its_child_to_fit_and_centres_it() {
     let child = l.node("C");
     // Contain: scale 4 (400/100) fits width; height becomes 200, centred.
     assert!((child.world.sx - 4.0).abs() < 1e-4);
-    approx(child.world.apply_rect(child.rect), rect(0.0, 100.0, 400.0, 200.0));
+    approx(
+        child.world.apply_rect(child.rect),
+        rect(0.0, 100.0, 400.0, 200.0),
+    );
 }
 
 #[test]
@@ -323,7 +329,12 @@ fn wrapping_text_grows_taller_as_its_space_narrows() {
         let v = add(&mut w, root, Kind::VerticalBox, "V");
         slot(&mut w, v, "offsets", json!([0.0, 0.0, width, 400.0]));
         let t = add(&mut w, v, Kind::Text, "T");
-        set(&mut w, t, "text", json!("one two three four five six seven eight"));
+        set(
+            &mut w,
+            t,
+            "text",
+            json!("one two three four five six seven eight"),
+        );
         set(&mut w, t, "wrap", json!(true));
         set(&mut w, t, "font_size", json!(20.0));
         Laid::new(w).rect("T").h
@@ -367,7 +378,7 @@ fn unresolved_instances_show_as_a_placeholder_and_empty_slots_as_a_hole() {
     w.add(root, None, s).unwrap();
     slot(&mut w, sid, "auto_size", json!(true));
     let l = Laid::new(w);
-    assert_eq!(l.rect ("Ghost").size(), PLACEHOLDER_SIZE);
+    assert_eq!(l.rect("Ghost").size(), PLACEHOLDER_SIZE);
     assert_eq!(l.rect("Body").size(), EMPTY_SLOT_SIZE);
     let _ = SlotKind::Canvas;
 }

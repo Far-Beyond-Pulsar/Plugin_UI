@@ -77,12 +77,20 @@ pub struct OverlayData {
 }
 
 fn px_rect(origin: Point<Pixels>, r: Rect) -> Bounds<Pixels> {
-    Bounds::new(point(origin.x + px(r.x), origin.y + px(r.y)), size(px(r.w), px(r.h)))
+    Bounds::new(
+        point(origin.x + px(r.x), origin.y + px(r.y)),
+        size(px(r.w), px(r.h)),
+    )
 }
 
 /// A layout-space rectangle in canvas pixels.
 pub fn to_canvas_rect(view: &ViewShot, r: Rect) -> Rect {
-    Rect::new(r.x * view.scale + view.pan.x, r.y * view.scale + view.pan.y, r.w * view.scale, r.h * view.scale)
+    Rect::new(
+        r.x * view.scale + view.pan.x,
+        r.y * view.scale + view.pan.y,
+        r.w * view.scale,
+        r.h * view.scale,
+    )
 }
 
 /// The handle squares for a selection rectangle given in canvas pixels.
@@ -91,7 +99,15 @@ pub fn handle_bounds(rect: Rect) -> Vec<(Handle, Rect)> {
         .into_iter()
         .map(|h| {
             let p = h.position(rect);
-            (h, Rect::new(p.x - HANDLE_SIZE * 0.5, p.y - HANDLE_SIZE * 0.5, HANDLE_SIZE, HANDLE_SIZE))
+            (
+                h,
+                Rect::new(
+                    p.x - HANDLE_SIZE * 0.5,
+                    p.y - HANDLE_SIZE * 0.5,
+                    HANDLE_SIZE,
+                    HANDLE_SIZE,
+                ),
+            )
         })
         .collect()
 }
@@ -103,7 +119,11 @@ fn outline(window: &mut Window, bounds: Bounds<Pixels>, color: Hsla, width: f32,
         background: gpui::transparent_black().into(),
         border_widths: Edges::all(px(width)),
         border_color: color,
-        border_style: if dashed { BorderStyle::Dashed } else { BorderStyle::Solid },
+        border_style: if dashed {
+            BorderStyle::Dashed
+        } else {
+            BorderStyle::Solid
+        },
     });
 }
 
@@ -120,11 +140,20 @@ fn line(window: &mut Window, a: Point<Pixels>, b: Point<Pixels>, width: f32, col
     }
 }
 
-pub fn paint_designer(bounds: Bounds<Pixels>, data: &OverlayData, window: &mut Window, cx: &mut App) {
+pub fn paint_designer(
+    bounds: Bounds<Pixels>,
+    data: &OverlayData,
+    window: &mut Window,
+    cx: &mut App,
+) {
     let origin = bounds.origin;
     let view = data.view;
     let colors = data.colors;
-    let surface = Surface { origin, scale: view.scale, pan: view.pan };
+    let surface = Surface {
+        origin,
+        scale: view.scale,
+        pan: view.pan,
+    };
 
     // The pasteboard.
     fill(window, bounds, colors.background);
@@ -135,12 +164,19 @@ pub fn paint_designer(bounds: Bounds<Pixels>, data: &OverlayData, window: &mut W
     window.paint_shadows(
         px_rect(origin, screen_canvas),
         Corners::all(px(0.0)),
-        &[BoxShadow { color: gpui::black().opacity(0.45), offset: point(px(0.0), px(6.0)), blur_radius: px(24.0), spread_radius: px(0.0) }],
+        &[BoxShadow {
+            color: gpui::black().opacity(0.45),
+            offset: point(px(0.0), px(6.0)),
+            blur_radius: px(24.0),
+            spread_radius: px(0.0),
+        }],
     );
     fill(window, px_rect(origin, screen_canvas), colors.screen);
 
     // Everything on the screen is clipped to it, as in the running game.
-    let mask = ContentMask { bounds: px_rect(origin, screen_canvas) };
+    let mask = ContentMask {
+        bounds: px_rect(origin, screen_canvas),
+    };
     window.with_content_mask(Some(mask), |window| {
         if view.grid {
             paint_grid(window, origin, &view, screen_canvas, colors);
@@ -156,13 +192,30 @@ pub fn paint_designer(bounds: Bounds<Pixels>, data: &OverlayData, window: &mut W
         painter.paint(&data.frame.cmds, window, cx);
     });
 
-    outline(window, px_rect(origin, screen_canvas), colors.muted.opacity(0.5), 1.0, false);
+    outline(
+        window,
+        px_rect(origin, screen_canvas),
+        colors.muted.opacity(0.5),
+        1.0,
+        false,
+    );
 
     // Safe zone: the part of the screen a console TV is guaranteed to show.
     if view.safe_zone {
         for (inset, color) in [(0.05, colors.warning), (0.10, colors.danger)] {
-            let r = Rect::new(screen.w * inset, screen.h * inset, screen.w * (1.0 - 2.0 * inset), screen.h * (1.0 - 2.0 * inset));
-            outline(window, px_rect(origin, to_canvas_rect(&view, r)), color.opacity(0.7), 1.0, true);
+            let r = Rect::new(
+                screen.w * inset,
+                screen.h * inset,
+                screen.w * (1.0 - 2.0 * inset),
+                screen.h * (1.0 - 2.0 * inset),
+            );
+            outline(
+                window,
+                px_rect(origin, to_canvas_rect(&view, r)),
+                color.opacity(0.7),
+                1.0,
+                true,
+            );
         }
     }
 
@@ -172,17 +225,33 @@ pub fn paint_designer(bounds: Bounds<Pixels>, data: &OverlayData, window: &mut W
             if *id == NodeId(0) {
                 continue;
             }
-            outline(window, px_rect(origin, to_canvas_rect(&view, *rect)), colors.muted.opacity(0.35), 1.0, false);
+            outline(
+                window,
+                px_rect(origin, to_canvas_rect(&view, *rect)),
+                colors.muted.opacity(0.35),
+                1.0,
+                false,
+            );
         }
     }
 
     // The container the selection sits in.
     if let Some(parent) = data.parent_rect {
-        outline(window, px_rect(origin, to_canvas_rect(&view, parent)), colors.muted.opacity(0.8), 1.0, true);
+        outline(
+            window,
+            px_rect(origin, to_canvas_rect(&view, parent)),
+            colors.muted.opacity(0.8),
+            1.0,
+            true,
+        );
     }
 
     // Hover.
-    if let Some(rect) = data.hover.filter(|h| !data.selection.contains(h)).and_then(|h| data.frame.screen.get(&h)) {
+    if let Some(rect) = data
+        .hover
+        .filter(|h| !data.selection.contains(h))
+        .and_then(|h| data.frame.screen.get(&h))
+    {
         let b = px_rect(origin, to_canvas_rect(&view, *rect));
         fill(window, b, colors.accent.opacity(0.08));
         outline(window, b, colors.accent.opacity(0.7), 1.0, false);
@@ -190,15 +259,36 @@ pub fn paint_designer(bounds: Bounds<Pixels>, data: &OverlayData, window: &mut W
 
     // Selection.
     for id in &data.selection {
-        let Some(rect) = data.frame.screen.get(id) else { continue };
+        let Some(rect) = data.frame.screen.get(id) else {
+            continue;
+        };
         let canvas = to_canvas_rect(&view, *rect);
         let primary = data.primary == Some(*id);
-        let color = if data.locked.contains(id) { colors.warning } else { colors.accent };
-        outline(window, px_rect(origin, canvas), color.opacity(if primary { 1.0 } else { 0.75 }), if primary { 1.5 } else { 1.0 }, false);
+        let color = if data.locked.contains(id) {
+            colors.warning
+        } else {
+            colors.accent
+        };
+        outline(
+            window,
+            px_rect(origin, canvas),
+            color.opacity(if primary { 1.0 } else { 0.75 }),
+            if primary { 1.5 } else { 1.0 },
+            false,
+        );
     }
     if let Some(rect) = data.primary.and_then(|p| data.frame.screen.get(&p)) {
         let canvas = to_canvas_rect(&view, *rect);
-        paint_label(window, cx, origin, canvas, &data.primary_name, rect, colors, &data.font_family);
+        paint_label(
+            window,
+            cx,
+            origin,
+            canvas,
+            &data.primary_name,
+            rect,
+            colors,
+            &data.font_family,
+        );
         if data.selection.len() == 1 {
             paint_handles(window, origin, canvas, data.resizable, colors);
         }
@@ -210,8 +300,14 @@ pub fn paint_designer(bounds: Bounds<Pixels>, data: &OverlayData, window: &mut W
     // Snap guides.
     for guide in &data.guides {
         let (a, b) = match guide.axis {
-            GuideAxis::X => (Vec2::new(guide.at, guide.from), Vec2::new(guide.at, guide.to)),
-            GuideAxis::Y => (Vec2::new(guide.from, guide.at), Vec2::new(guide.to, guide.at)),
+            GuideAxis::X => (
+                Vec2::new(guide.at, guide.from),
+                Vec2::new(guide.at, guide.to),
+            ),
+            GuideAxis::Y => (
+                Vec2::new(guide.from, guide.at),
+                Vec2::new(guide.to, guide.at),
+            ),
         };
         let guide_color = hsla(crate::model::Color::rgba(1.0, 0.25, 0.75, 0.9));
         line(window, surface.point(a), surface.point(b), 1.0, guide_color);
@@ -230,7 +326,11 @@ pub fn paint_designer(bounds: Bounds<Pixels>, data: &OverlayData, window: &mut W
         outline(window, container, colors.accent, 2.0, false);
         fill(window, container, colors.accent.opacity(0.06));
         if let Some(line_rect) = drop.line {
-            fill(window, px_rect(origin, to_canvas_rect(&view, line_rect)), colors.accent);
+            fill(
+                window,
+                px_rect(origin, to_canvas_rect(&view, line_rect)),
+                colors.accent,
+            );
         }
         if let Some(at) = drop.at {
             let p = surface.point(at);
@@ -264,7 +364,13 @@ pub fn paint_designer(bounds: Bounds<Pixels>, data: &OverlayData, window: &mut W
     }
 }
 
-fn paint_grid(window: &mut Window, origin: Point<Pixels>, view: &ViewShot, screen: Rect, colors: Colors) {
+fn paint_grid(
+    window: &mut Window,
+    origin: Point<Pixels>,
+    view: &ViewShot,
+    screen: Rect,
+    colors: Colors,
+) {
     let step = view.grid_size * view.scale;
     // Skip the grid when it would be a smear.
     if step < 5.0 {
@@ -276,7 +382,11 @@ fn paint_grid(window: &mut Window, origin: Point<Pixels>, view: &ViewShot, scree
     let mut x = screen.x;
     while x <= screen.right() && n < 4000 {
         let c = if n.is_multiple_of(8) { major } else { minor };
-        fill(window, px_rect(origin, Rect::new(x, screen.y, 1.0, screen.h)), c);
+        fill(
+            window,
+            px_rect(origin, Rect::new(x, screen.y, 1.0, screen.h)),
+            c,
+        );
         x += step;
         n += 1;
     }
@@ -284,18 +394,32 @@ fn paint_grid(window: &mut Window, origin: Point<Pixels>, view: &ViewShot, scree
     let mut y = screen.y;
     while y <= screen.bottom() && n < 4000 {
         let c = if n.is_multiple_of(8) { major } else { minor };
-        fill(window, px_rect(origin, Rect::new(screen.x, y, screen.w, 1.0)), c);
+        fill(
+            window,
+            px_rect(origin, Rect::new(screen.x, y, screen.w, 1.0)),
+            c,
+        );
         y += step;
         n += 1;
     }
 }
 
-fn paint_handles(window: &mut Window, origin: Point<Pixels>, canvas: Rect, active: bool, colors: Colors) {
+fn paint_handles(
+    window: &mut Window,
+    origin: Point<Pixels>,
+    canvas: Rect,
+    active: bool,
+    colors: Colors,
+) {
     for (_, h) in handle_bounds(canvas) {
         window.paint_quad(PaintQuad {
             bounds: px_rect(origin, h),
             corner_radii: Corners::all(px(2.0)),
-            background: if active { gpui::white().into() } else { colors.popover.into() },
+            background: if active {
+                gpui::white().into()
+            } else {
+                colors.popover.into()
+            },
             border_widths: Edges::all(px(1.5)),
             border_color: if active { colors.accent } else { colors.muted },
             border_style: BorderStyle::Solid,
@@ -305,10 +429,23 @@ fn paint_handles(window: &mut Window, origin: Point<Pixels>, canvas: Rect, activ
 
 /// The name of the selected widget and its size, above its top-left corner.
 #[allow(clippy::too_many_arguments)]
-fn paint_label(window: &mut Window, cx: &mut App, origin: Point<Pixels>, canvas: Rect, name: &str, rect: &Rect, colors: Colors, family: &SharedString) {
+fn paint_label(
+    window: &mut Window,
+    cx: &mut App,
+    origin: Point<Pixels>,
+    canvas: Rect,
+    name: &str,
+    rect: &Rect,
+    colors: Colors,
+    family: &SharedString,
+) {
     let text = format!("{name}  {} \u{d7} {}", rect.w.round(), rect.h.round());
     let width = (text.chars().count() as f32 * 6.4 + 12.0).min(360.0);
-    let y = if canvas.y > 22.0 { canvas.y - 20.0 } else { canvas.bottom() + 4.0 };
+    let y = if canvas.y > 22.0 {
+        canvas.y - 20.0
+    } else {
+        canvas.bottom() + 4.0
+    };
     let chip = Rect::new(canvas.x, y, width, 17.0);
     window.paint_quad(PaintQuad {
         bounds: px_rect(origin, chip),
@@ -322,7 +459,10 @@ fn paint_label(window: &mut Window, cx: &mut App, origin: Point<Pixels>, canvas:
         window,
         cx,
         family,
-        px_rect(origin, Rect::new(chip.x + 6.0, chip.y + 2.0, chip.w - 8.0, chip.h)),
+        px_rect(
+            origin,
+            Rect::new(chip.x + 6.0, chip.y + 2.0, chip.w - 8.0, chip.h),
+        ),
         &text,
         11.0,
         "medium",
@@ -336,7 +476,16 @@ fn paint_label(window: &mut Window, cx: &mut App, origin: Point<Pixels>, canvas:
 
 /// Diamonds at the anchor points on the panel, with lines to the widget.
 #[allow(clippy::too_many_arguments)]
-fn paint_anchors(window: &mut Window, origin: Point<Pixels>, view: &ViewShot, amin: Vec2, amax: Vec2, panel: Rect, widget: Rect, colors: Colors) {
+fn paint_anchors(
+    window: &mut Window,
+    origin: Point<Pixels>,
+    view: &ViewShot,
+    amin: Vec2,
+    amax: Vec2,
+    panel: Rect,
+    widget: Rect,
+    colors: Colors,
+) {
     let point_at = |a: Vec2| Vec2::new(panel.x + a.x * panel.w, panel.y + a.y * panel.h);
     let corners = [
         point_at(Vec2::new(amin.x, amin.y)),
@@ -346,13 +495,22 @@ fn paint_anchors(window: &mut Window, origin: Point<Pixels>, view: &ViewShot, am
     ];
     let mut seen: Vec<Vec2> = Vec::new();
     for corner in corners {
-        if seen.iter().any(|s| (s.x - corner.x).abs() < 0.01 && (s.y - corner.y).abs() < 0.01) {
+        if seen
+            .iter()
+            .any(|s| (s.x - corner.x).abs() < 0.01 && (s.y - corner.y).abs() < 0.01)
+        {
             continue;
         }
         seen.push(corner);
-        let c = Vec2::new(corner.x * view.scale + view.pan.x, corner.y * view.scale + view.pan.y);
+        let c = Vec2::new(
+            corner.x * view.scale + view.pan.x,
+            corner.y * view.scale + view.pan.y,
+        );
         let center = widget.center();
-        let target = Vec2::new(center.x.clamp(widget.x, widget.right()), center.y.clamp(widget.y, widget.bottom()));
+        let target = Vec2::new(
+            center.x.clamp(widget.x, widget.right()),
+            center.y.clamp(widget.y, widget.bottom()),
+        );
         line(
             window,
             point(origin.x + px(c.x), origin.y + px(c.y)),

@@ -34,7 +34,9 @@ const CLIPBOARD_TAG: &str = "pulsar_widget_nodes";
 pub fn default_canvas_size(kind: Kind) -> Option<Vec2> {
     // `None` sizes the node to its content.
     Some(match kind {
-        Kind::Text | Kind::CheckBox | Kind::Instance | Kind::NamedSlot | Kind::Unknown => return None,
+        Kind::Text | Kind::CheckBox | Kind::Instance | Kind::NamedSlot | Kind::Unknown => {
+            return None
+        }
         Kind::Button => Vec2::new(160.0, 44.0),
         Kind::Image => Vec2::new(128.0, 128.0),
         Kind::Border => Vec2::new(240.0, 160.0),
@@ -45,7 +47,12 @@ pub fn default_canvas_size(kind: Kind) -> Option<Vec2> {
         Kind::Spacer => Vec2::new(32.0, 32.0),
         Kind::SizeBox | Kind::ScaleBox => Vec2::new(200.0, 100.0),
         Kind::Canvas => Vec2::new(300.0, 200.0),
-        Kind::VerticalBox | Kind::HorizontalBox | Kind::Overlay | Kind::Grid | Kind::WrapBox | Kind::ScrollBox => Vec2::new(240.0, 200.0),
+        Kind::VerticalBox
+        | Kind::HorizontalBox
+        | Kind::Overlay
+        | Kind::Grid
+        | Kind::WrapBox
+        | Kind::ScrollBox => Vec2::new(240.0, 200.0),
     })
 }
 
@@ -139,7 +146,10 @@ impl Ctx {
         while let Some(id) = at {
             // Only panels that hold many widgets take a new one by default: adding
             // while an empty border is selected puts it beside the border, not inside.
-            if widget.node(id).is_some_and(|n| n.info().children == crate::model::schema::Children::Many) {
+            if widget
+                .node(id)
+                .is_some_and(|n| n.info().children == crate::model::schema::Children::Many)
+            {
                 return id;
             }
             at = widget.parent_of(id);
@@ -152,7 +162,11 @@ impl Ctx {
     /// Add a new widget of `kind`. With no `drop`, it goes into the selected
     /// container (or beside the selected widget).
     pub fn add_node(&self, kind: Kind, drop: Option<DropSpot>, cx: &mut App) -> Option<NodeId> {
-        let drop = drop.unwrap_or_else(|| DropSpot { container: self.container_for(self.primary(cx), cx), index: None, at: None });
+        let drop = drop.unwrap_or_else(|| DropSpot {
+            container: self.container_for(self.primary(cx), cx),
+            index: None,
+            at: None,
+        });
         let mut created = None;
         let mut failure = None;
         self.edit("Add widget", cx, |w| match build_node(w, kind) {
@@ -172,14 +186,24 @@ impl Ctx {
     }
 
     /// Add an instance of the widget `target`, refusing one that would contain itself.
-    pub fn add_instance(&self, target: &WidgetId, name: &str, drop: Option<DropSpot>, cx: &mut App) -> Option<NodeId> {
+    pub fn add_instance(
+        &self,
+        target: &WidgetId,
+        name: &str,
+        drop: Option<DropSpot>,
+        cx: &mut App,
+    ) -> Option<NodeId> {
         let this = self.widget(cx).id.clone();
         let library = self.library_now(cx);
         if library.widget_exists(target) && would_cycle(&library, &this, target) {
             self.say(format!("{name} can't be added: it contains this widget, so each would contain the other"), cx);
             return None;
         }
-        let drop = drop.unwrap_or_else(|| DropSpot { container: self.container_for(self.primary(cx), cx), index: None, at: None });
+        let drop = drop.unwrap_or_else(|| DropSpot {
+            container: self.container_for(self.primary(cx), cx),
+            index: None,
+            at: None,
+        });
         let mut created = None;
         let mut failure = None;
         let name = name.to_string();
@@ -220,7 +244,10 @@ impl Ctx {
         ids.iter()
             .copied()
             .filter(|&id| id != widget.root.id)
-            .filter(|&id| !ids.iter().any(|&other| other != id && widget.is_within(other, id)))
+            .filter(|&id| {
+                !ids.iter()
+                    .any(|&other| other != id && widget.is_within(other, id))
+            })
             .collect()
     }
 
@@ -280,7 +307,8 @@ impl Ctx {
                 Some(json)
             })
             .collect();
-        let text = serde_json::to_string(&json!({ CLIPBOARD_TAG: 1, "nodes": nodes })).unwrap_or_default();
+        let text =
+            serde_json::to_string(&json!({ CLIPBOARD_TAG: 1, "nodes": nodes })).unwrap_or_default();
         cx.write_to_clipboard(ClipboardItem::new_string(text));
         true
     }
@@ -292,13 +320,19 @@ impl Ctx {
     }
 
     pub fn can_paste(&self, cx: &App) -> bool {
-        cx.read_from_clipboard().and_then(|c| c.text()).is_some_and(|t| t.contains(CLIPBOARD_TAG))
+        cx.read_from_clipboard()
+            .and_then(|c| c.text())
+            .is_some_and(|t| t.contains(CLIPBOARD_TAG))
     }
 
     /// Paste what was copied into the selected container (or beside the selected widget).
     pub fn paste(&self, cx: &mut App) {
-        let Some(text) = cx.read_from_clipboard().and_then(|c| c.text()) else { return };
-        let Ok(value) = serde_json::from_str::<Json>(&text) else { return };
+        let Some(text) = cx.read_from_clipboard().and_then(|c| c.text()) else {
+            return;
+        };
+        let Ok(value) = serde_json::from_str::<Json>(&text) else {
+            return;
+        };
         if value.get(CLIPBOARD_TAG).is_none() {
             return;
         }
@@ -306,9 +340,20 @@ impl Ctx {
         let mut created = Vec::new();
         let mut failure = None;
         self.edit("Paste", cx, |w| {
-            for raw in value.get("nodes").and_then(Json::as_array).into_iter().flatten() {
-                let slot = raw.get("slot_kind").and_then(Json::as_str).and_then(SlotKind::from_key).unwrap_or(SlotKind::None);
-                let Some(source) = Node::from_json(raw, slot, &mut Vec::new()) else { continue };
+            for raw in value
+                .get("nodes")
+                .and_then(Json::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let slot = raw
+                    .get("slot_kind")
+                    .and_then(Json::as_str)
+                    .and_then(SlotKind::from_key)
+                    .unwrap_or(SlotKind::None);
+                let Some(source) = Node::from_json(raw, slot, &mut Vec::new()) else {
+                    continue;
+                };
                 let copy = w.fresh_copy(&source);
                 let id = copy.id;
                 match w.add(container, None, copy) {
@@ -330,7 +375,11 @@ impl Ctx {
 
     pub fn wrap_selected(&self, kind: Kind, cx: &mut App) {
         let ids = self.top_level(&self.selected(cx), cx);
-        let ids = if ids.is_empty() { self.selected(cx) } else { ids };
+        let ids = if ids.is_empty() {
+            self.selected(cx)
+        } else {
+            ids
+        };
         if ids.is_empty() {
             return;
         }
@@ -348,7 +397,11 @@ impl Ctx {
 
     pub fn unwrap_selected(&self, cx: &mut App) {
         let Some(id) = self.primary(cx) else { return };
-        let children: Vec<NodeId> = self.widget(cx).node(id).map(|n| n.children.iter().map(|c| c.id).collect()).unwrap_or_default();
+        let children: Vec<NodeId> = self
+            .widget(cx)
+            .node(id)
+            .map(|n| n.children.iter().map(|c| c.id).collect())
+            .unwrap_or_default();
         let mut failure = None;
         self.edit("Unwrap", cx, |w| {
             if let Err(e) = w.unwrap(id) {
@@ -372,7 +425,10 @@ impl Ctx {
             return;
         }
         let mut failure = None;
-        let frame_rects: Vec<(NodeId, Option<Rect>)> = ids.iter().map(|&id| (id, frame.and_then(|f| f.layout.get(&id).copied()))).collect();
+        let frame_rects: Vec<(NodeId, Option<Rect>)> = ids
+            .iter()
+            .map(|&id| (id, frame.and_then(|f| f.layout.get(&id).copied())))
+            .collect();
         let container_rect = frame.and_then(|f| f.layout.get(&drop.container).copied());
         self.edit("Move", cx, |w| {
             let first_origin = frame_rects.iter().find_map(|(_, r)| r.map(|r| r.origin()));
@@ -387,16 +443,29 @@ impl Ctx {
                 let now_canvas = w.slot_kind_of(*id) == SlotKind::Canvas;
                 if now_canvas && !was_canvas_child {
                     // Arrived from a layout that did its own placing: keep the size it had.
-                    let (Some(rect), Some(at), Some(cont)) = (rect, drop.at, container_rect) else { continue };
-                    let delta = first_origin.map_or(Vec2::ZERO, |o| Vec2::new(rect.x - o.x, rect.y - o.y));
-                    let wanted = Rect::new(at.x - cont.x + delta.x, at.y - cont.y + delta.y, rect.w, rect.h);
+                    let (Some(rect), Some(at), Some(cont)) = (rect, drop.at, container_rect) else {
+                        continue;
+                    };
+                    let delta =
+                        first_origin.map_or(Vec2::ZERO, |o| Vec2::new(rect.x - o.x, rect.y - o.y));
+                    let wanted = Rect::new(
+                        at.x - cont.x + delta.x,
+                        at.y - cont.y + delta.y,
+                        rect.w,
+                        rect.h,
+                    );
                     if let Some(n) = w.node_mut(*id) {
-                        n.set_slot(SlotKind::Canvas, "offsets", json!([wanted.x, wanted.y, wanted.w, wanted.h]));
+                        n.set_slot(
+                            SlotKind::Canvas,
+                            "offsets",
+                            json!([wanted.x, wanted.y, wanted.w, wanted.h]),
+                        );
                         n.set_slot(SlotKind::Canvas, "auto_size", json!(false));
                     }
                 } else if now_canvas && was_canvas_child {
                     if let (Some(rect), Some(at), Some(cont)) = (rect, drop.at, container_rect) {
-                        let delta = first_origin.map_or(Vec2::ZERO, |o| Vec2::new(rect.x - o.x, rect.y - o.y));
+                        let delta = first_origin
+                            .map_or(Vec2::ZERO, |o| Vec2::new(rect.x - o.x, rect.y - o.y));
                         let wanted = Rect::new(at.x + delta.x, at.y + delta.y, rect.w, rect.h);
                         set_canvas_rect(w, *id, cont, wanted);
                     }
@@ -411,7 +480,11 @@ impl Ctx {
     /// i.e. further back); `to_end` sends it all the way.
     pub fn reorder_selected(&self, by: i32, to_end: bool, cx: &mut App) {
         let ids = self.top_level(&self.selected(cx), cx);
-        let label = if by < 0 { "Send backward" } else { "Bring forward" };
+        let label = if by < 0 {
+            "Send backward"
+        } else {
+            "Bring forward"
+        };
         let mut failure = None;
         self.edit(label, cx, |w| {
             let mut ordered = ids.clone();
@@ -421,7 +494,9 @@ impl Ctx {
                 ordered.reverse();
             }
             for id in ordered {
-                let (Some(parent), Some(at)) = (w.parent_of(id), w.index_in_parent(id)) else { continue };
+                let (Some(parent), Some(at)) = (w.parent_of(id), w.index_in_parent(id)) else {
+                    continue;
+                };
                 let len = w.node(parent).map_or(0, |p| p.children.len());
                 let target = if to_end {
                     if by > 0 {
@@ -454,7 +529,10 @@ impl Ctx {
             })
         });
         if !moved && !ids.is_empty() {
-            self.say("Only widgets on a canvas can be nudged; use the hierarchy to reorder the others", cx);
+            self.say(
+                "Only widgets on a canvas can be nudged; use the hierarchy to reorder the others",
+                cx,
+            );
         }
     }
 
@@ -466,7 +544,10 @@ impl Ctx {
             self.say("Select widgets on a canvas to align them", cx);
             return;
         };
-        let items: Vec<(NodeId, Rect)> = ids.iter().filter_map(|&id| frame.layout.get(&id).map(|r| (id, *r))).collect();
+        let items: Vec<(NodeId, Rect)> = ids
+            .iter()
+            .filter_map(|&id| frame.layout.get(&id).map(|r| (id, *r)))
+            .collect();
         let moves = geometry::align(&items, primary, kind);
         self.apply_moves(&moves, "Align", cx);
     }
@@ -474,9 +555,15 @@ impl Ctx {
     pub fn distribute_selected(&self, horizontal: bool, cx: &mut App) {
         let Some(frame) = self.frame() else { return };
         let ids = self.canvas_selection(cx);
-        let items: Vec<(NodeId, Rect)> = ids.iter().filter_map(|&id| frame.layout.get(&id).map(|r| (id, *r))).collect();
+        let items: Vec<(NodeId, Rect)> = ids
+            .iter()
+            .filter_map(|&id| frame.layout.get(&id).map(|r| (id, *r)))
+            .collect();
         if items.len() < 3 {
-            self.say("Select at least three widgets on a canvas to distribute them", cx);
+            self.say(
+                "Select at least three widgets on a canvas to distribute them",
+                cx,
+            );
             return;
         }
         let moves = geometry::distribute(&items, horizontal);
@@ -485,7 +572,10 @@ impl Ctx {
 
     fn canvas_selection(&self, cx: &App) -> Vec<NodeId> {
         let widget = self.widget(cx);
-        self.top_level(&self.selected(cx), cx).into_iter().filter(|&id| widget.slot_kind_of(id) == SlotKind::Canvas).collect()
+        self.top_level(&self.selected(cx), cx)
+            .into_iter()
+            .filter(|&id| widget.slot_kind_of(id) == SlotKind::Canvas)
+            .collect()
     }
 
     fn apply_moves(&self, moves: &[(NodeId, Vec2)], label: &'static str, cx: &mut App) {
@@ -508,15 +598,26 @@ impl Ctx {
         let rects: Vec<(NodeId, Option<Rect>, Option<Rect>)> = ids
             .iter()
             .map(|&id| {
-                let parent = self.widget(cx).parent_of(id).and_then(|p| frame.layout.get(&p).copied());
+                let parent = self
+                    .widget(cx)
+                    .parent_of(id)
+                    .and_then(|p| frame.layout.get(&p).copied());
                 (id, frame.layout.get(&id).copied(), parent)
             })
             .collect();
         self.edit("Set anchors", cx, |w| {
             for (id, rect, parent) in &rects {
-                let (Some(rect), Some(parent)) = (rect, parent) else { continue };
-                let Some(node) = w.node_mut(*id) else { continue };
-                let align = if with_alignment { preset.alignment() } else { node.slot_view(SlotKind::Canvas).vec2("alignment") };
+                let (Some(rect), Some(parent)) = (rect, parent) else {
+                    continue;
+                };
+                let Some(node) = w.node_mut(*id) else {
+                    continue;
+                };
+                let align = if with_alignment {
+                    preset.alignment()
+                } else {
+                    node.slot_view(SlotKind::Canvas).vec2("alignment")
+                };
                 let offsets = offsets_for(amin, amax, align, *parent, *rect);
                 node.set_slot(SlotKind::Canvas, "anchor_min", json!([amin.x, amin.y]));
                 node.set_slot(SlotKind::Canvas, "anchor_max", json!([amax.x, amax.y]));
@@ -577,7 +678,9 @@ impl Ctx {
         let mut made = None;
         self.edit("Create parameter", cx, |w| {
             let Some(n) = w.node(node) else { return };
-            let Some(def) = n.info().def(&prop) else { return };
+            let Some(def) = n.info().def(&prop) else {
+                return;
+            };
             let class = def.ty.class();
             let current = n.view().json(&prop).into_owned();
             let name = format!("{}_{}", n.name, def.label.replace(' ', ""));
@@ -609,7 +712,9 @@ impl Ctx {
     pub fn add_parameter(&self, name: &str, class: ValueClass, cx: &mut App) -> Option<ParamId> {
         let mut made = None;
         let name = name.to_string();
-        self.edit("Add parameter", cx, |w| made = Some(w.add_parameter(&name, class)));
+        self.edit("Add parameter", cx, |w| {
+            made = Some(w.add_parameter(&name, class))
+        });
         made
     }
 
@@ -655,17 +760,27 @@ fn place(w: &mut WidgetAsset, mut node: Node, drop: DropSpot) -> Result<(), OpEr
 }
 
 fn apply_canvas_defaults(w: &WidgetAsset, node: &mut Node, kind: Kind, drop: DropSpot) {
-    let on_canvas = w.node(drop.container).is_some_and(|c| c.info().slot == SlotKind::Canvas);
+    let on_canvas = w
+        .node(drop.container)
+        .is_some_and(|c| c.info().slot == SlotKind::Canvas);
     if !on_canvas {
         return;
     }
     let at = drop.at.unwrap_or(Vec2::new(32.0, 32.0));
     match default_canvas_size(kind) {
         Some(size) => {
-            node.set_slot(SlotKind::Canvas, "offsets", json!([at.x.round(), at.y.round(), size.x, size.y]));
+            node.set_slot(
+                SlotKind::Canvas,
+                "offsets",
+                json!([at.x.round(), at.y.round(), size.x, size.y]),
+            );
         }
         None => {
-            node.set_slot(SlotKind::Canvas, "offsets", json!([at.x.round(), at.y.round(), 100.0, 30.0]));
+            node.set_slot(
+                SlotKind::Canvas,
+                "offsets",
+                json!([at.x.round(), at.y.round(), 100.0, 30.0]),
+            );
             node.set_slot(SlotKind::Canvas, "auto_size", json!(true));
         }
     }
@@ -676,9 +791,15 @@ pub fn nudge_canvas_child(w: &mut WidgetAsset, id: NodeId, delta: Vec2) -> bool 
     if w.slot_kind_of(id) != SlotKind::Canvas {
         return false;
     }
-    let Some(node) = w.node_mut(id) else { return false };
+    let Some(node) = w.node_mut(id) else {
+        return false;
+    };
     let v = node.slot_view(SlotKind::Canvas);
-    let (amin, amax, o) = (v.vec2("anchor_min"), v.vec2("anchor_max"), v.quad("offsets"));
+    let (amin, amax, o) = (
+        v.vec2("anchor_min"),
+        v.vec2("anchor_max"),
+        v.quad("offsets"),
+    );
     let moved = translate_offsets(o, amin, amax, delta.x, delta.y);
     node.set_slot(SlotKind::Canvas, "offsets", json!(moved));
     true
@@ -691,7 +812,13 @@ pub fn set_canvas_rect(w: &mut WidgetAsset, id: NodeId, parent: Rect, wanted: Re
     }
     let Some(node) = w.node_mut(id) else { return };
     let v = node.slot_view(SlotKind::Canvas);
-    let offsets = offsets_for(v.vec2("anchor_min"), v.vec2("anchor_max"), v.vec2("alignment"), parent, wanted);
+    let offsets = offsets_for(
+        v.vec2("anchor_min"),
+        v.vec2("anchor_max"),
+        v.vec2("alignment"),
+        parent,
+        wanted,
+    );
     node.set_slot(SlotKind::Canvas, "offsets", json!(offsets));
     // Giving it a size by hand means it no longer follows its content.
     node.set_slot(SlotKind::Canvas, "auto_size", json!(false));
@@ -711,8 +838,15 @@ impl Ctx {
                     if w.driver_of(*id, key).is_some() {
                         continue;
                     }
-                    let Some(node) = w.node_mut(*id) else { continue };
-                    let Some(valid) = node.info().def(key).and_then(|d| d.ty.coerce(&value).or_else(|| (d.optional && value.is_null()).then(|| value.clone()))) else { continue };
+                    let Some(node) = w.node_mut(*id) else {
+                        continue;
+                    };
+                    let Some(valid) = node.info().def(key).and_then(|d| {
+                        d.ty.coerce(&value)
+                            .or_else(|| (d.optional && value.is_null()).then(|| value.clone()))
+                    }) else {
+                        continue;
+                    };
                     node.set_prop(key, valid);
                 }
             })
@@ -762,10 +896,18 @@ impl Ctx {
 
     /// Change what an instance passes for one of the used widget's parameters
     /// (`None` goes back to the parameter's default).
-    pub fn set_override(&self, node: NodeId, param: ParamId, arg: Option<crate::model::Arg>, cx: &mut App) {
+    pub fn set_override(
+        &self,
+        node: NodeId,
+        param: ParamId,
+        arg: Option<crate::model::Arg>,
+        cx: &mut App,
+    ) {
         self.doc.update(cx, |d, cx| {
             d.edit("Change widget value", Some("override"), cx, |w| {
-                let Some(instance) = w.node_mut(node).and_then(|n| n.instance.as_mut()) else { return };
+                let Some(instance) = w.node_mut(node).and_then(|n| n.instance.as_mut()) else {
+                    return;
+                };
                 match arg {
                     Some(arg) => {
                         instance.overrides.insert(param, arg);
@@ -783,7 +925,10 @@ impl Ctx {
         let this = self.widget(cx).id.clone();
         let library = self.library_now(cx);
         if would_cycle(&library, &this, target) {
-            self.say(format!("{name} can't be used here: it contains this widget"), cx);
+            self.say(
+                format!("{name} can't be used here: it contains this widget"),
+                cx,
+            );
             return;
         }
         let (target, name) = (target.clone(), name.to_string());
@@ -800,6 +945,9 @@ impl Ctx {
     pub fn project_relative(&self, path: &str, cx: &App) -> String {
         let root = self.lib.read(cx).root().to_path_buf();
         let p = std::path::Path::new(path);
-        p.strip_prefix(&root).map_or_else(|_| path.replace('\\', "/"), |r| r.to_string_lossy().replace('\\', "/"))
+        p.strip_prefix(&root).map_or_else(
+            |_| path.replace('\\', "/"),
+            |r| r.to_string_lossy().replace('\\', "/"),
+        )
     }
 }

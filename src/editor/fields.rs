@@ -48,12 +48,24 @@ pub struct Fields<V: 'static> {
 
 impl<V: 'static> Default for Fields<V> {
     fn default() -> Self {
-        Self { inputs: HashMap::new(), pickers: HashMap::new(), images: HashMap::new(), root: std::path::PathBuf::new(), subscriptions: Vec::new(), _panel: std::marker::PhantomData }
+        Self {
+            inputs: HashMap::new(),
+            pickers: HashMap::new(),
+            images: HashMap::new(),
+            root: std::path::PathBuf::new(),
+            subscriptions: Vec::new(),
+            _panel: std::marker::PhantomData,
+        }
     }
 }
 
 /// Bring `input` to showing `text`, unless it is being typed in.
-fn sync_text<V: 'static>(input: &Entity<InputState>, text: &str, window: &mut Window, cx: &mut Context<V>) {
+fn sync_text<V: 'static>(
+    input: &Entity<InputState>,
+    text: &str,
+    window: &mut Window,
+    cx: &mut Context<V>,
+) {
     let focused = input.read(cx).focus_handle(cx).contains_focused(window, cx);
     if !focused && input.read(cx).value().as_ref() != text {
         input.update(cx, |i, cx| i.set_value(text.to_string(), window, cx));
@@ -63,7 +75,10 @@ fn sync_text<V: 'static>(input: &Entity<InputState>, text: &str, window: &mut Wi
 impl<V: 'static> Fields<V> {
     /// Fields whose image pickers search the project at `root`.
     pub fn new(root: std::path::PathBuf) -> Self {
-        Self { root, ..Self::default() }
+        Self {
+            root,
+            ..Self::default()
+        }
     }
 
     /// An image picker: the project's images, searchable, with thumbnails.
@@ -77,11 +92,24 @@ impl<V: 'static> Fields<V> {
     ) -> Entity<MeshAssetPicker> {
         if !self.images.contains_key(&key) {
             let root = (!self.root.as_os_str().is_empty()).then(|| self.root.clone());
-            let picker = cx.new(|cx| MeshAssetPicker::new(current.to_string(), Vec::new(), root, AssetQuery::texture_images(), window, cx));
-            self.subscriptions.push(cx.subscribe_in(&picker, window, move |this: &mut V, picker, _e: &AssetPickedEvent, _w, cx| {
-                let chosen = picker.read(cx).selected_path().to_string();
-                set(this, chosen, cx);
-            }));
+            let picker = cx.new(|cx| {
+                MeshAssetPicker::new(
+                    current.to_string(),
+                    Vec::new(),
+                    root,
+                    AssetQuery::texture_images(),
+                    window,
+                    cx,
+                )
+            });
+            self.subscriptions.push(cx.subscribe_in(
+                &picker,
+                window,
+                move |this: &mut V, picker, _e: &AssetPickedEvent, _w, cx| {
+                    let chosen = picker.read(cx).selected_path().to_string();
+                    set(this, chosen, cx);
+                },
+            ));
             self.images.insert(key.clone(), picker);
         }
         let picker = self.images[&key].clone();
@@ -109,36 +137,53 @@ impl<V: 'static> Fields<V> {
             let (get, set) = (Rc::new(get), Rc::new(set));
 
             let (g, s) = (get.clone(), set.clone());
-            self.subscriptions.push(cx.subscribe_in(&input, window, move |this: &mut V, input, event: &InputEvent, _w, cx| {
-                if !matches!(event, InputEvent::Change) {
-                    return;
-                }
-                let text = input.read(cx).value().to_string();
-                let Ok(value) = text.trim().parse::<f32>() else { return };
-                if !value.is_finite() {
-                    return;
-                }
-                // Echo of the model's own value being shown: not an edit.
-                if g(this, cx).is_some_and(|c| format_number(c, spec.decimals) == text.trim()) {
-                    return;
-                }
-                s(this, value.clamp(spec.min, spec.max), cx);
-            }));
+            self.subscriptions.push(cx.subscribe_in(
+                &input,
+                window,
+                move |this: &mut V, input, event: &InputEvent, _w, cx| {
+                    if !matches!(event, InputEvent::Change) {
+                        return;
+                    }
+                    let text = input.read(cx).value().to_string();
+                    let Ok(value) = text.trim().parse::<f32>() else {
+                        return;
+                    };
+                    if !value.is_finite() {
+                        return;
+                    }
+                    // Echo of the model's own value being shown: not an edit.
+                    if g(this, cx).is_some_and(|c| format_number(c, spec.decimals) == text.trim()) {
+                        return;
+                    }
+                    s(this, value.clamp(spec.min, spec.max), cx);
+                },
+            ));
 
-            self.subscriptions.push(cx.subscribe_in(&input, window, move |this: &mut V, _input, event: &NumberInputEvent, _w, cx| {
-                let NumberInputEvent::Step { action, fine } = event;
-                let step = if *fine { spec.step * 0.1 } else { spec.step };
-                let base = get(this, cx).unwrap_or(0.0);
-                let next = match action {
-                    StepAction::Increment => base + step,
-                    StepAction::Decrement => base - step,
-                };
-                set(this, next.clamp(spec.min, spec.max), cx);
-            }));
+            self.subscriptions.push(cx.subscribe_in(
+                &input,
+                window,
+                move |this: &mut V, _input, event: &NumberInputEvent, _w, cx| {
+                    let NumberInputEvent::Step { action, fine } = event;
+                    let step = if *fine { spec.step * 0.1 } else { spec.step };
+                    let base = get(this, cx).unwrap_or(0.0);
+                    let next = match action {
+                        StepAction::Increment => base + step,
+                        StepAction::Decrement => base - step,
+                    };
+                    set(this, next.clamp(spec.min, spec.max), cx);
+                },
+            ));
             self.inputs.insert(key.clone(), input);
         }
         let input = self.inputs[&key].clone();
-        sync_text(&input, &current.map(|v| format_number(v, spec.decimals)).unwrap_or_default(), window, cx);
+        sync_text(
+            &input,
+            &current
+                .map(|v| format_number(v, spec.decimals))
+                .unwrap_or_default(),
+            window,
+            cx,
+        );
         input
     }
 
@@ -159,19 +204,27 @@ impl<V: 'static> Fields<V> {
             let placeholder = placeholder.to_string();
             let input = cx.new(|cx| {
                 let state = InputState::new(window, cx);
-                let state = if multiline { state.multi_line().rows(3) } else { state };
+                let state = if multiline {
+                    state.multi_line().rows(3)
+                } else {
+                    state
+                };
                 state.placeholder(placeholder)
             });
-            self.subscriptions.push(cx.subscribe_in(&input, window, move |this: &mut V, input, event: &InputEvent, _w, cx| {
-                if !matches!(event, InputEvent::Change) {
-                    return;
-                }
-                let text = input.read(cx).value().to_string();
-                if get(this, cx).is_some_and(|c| c == text) {
-                    return;
-                }
-                set(this, text, cx);
-            }));
+            self.subscriptions.push(cx.subscribe_in(
+                &input,
+                window,
+                move |this: &mut V, input, event: &InputEvent, _w, cx| {
+                    if !matches!(event, InputEvent::Change) {
+                        return;
+                    }
+                    let text = input.read(cx).value().to_string();
+                    if get(this, cx).is_some_and(|c| c == text) {
+                        return;
+                    }
+                    set(this, text, cx);
+                },
+            ));
             self.inputs.insert(key.clone(), input);
         }
         let input = self.inputs[&key].clone();
@@ -189,19 +242,31 @@ impl<V: 'static> Fields<V> {
         window: &mut Window,
         cx: &mut Context<V>,
     ) -> Entity<ColorPickerState> {
-        let hsla: Hsla = Rgba { r: current.r, g: current.g, b: current.b, a: current.a }.into();
+        let hsla: Hsla = Rgba {
+            r: current.r,
+            g: current.g,
+            b: current.b,
+            a: current.a,
+        }
+        .into();
         if !self.pickers.contains_key(&key) {
             let picker = cx.new(|cx| ColorPickerState::new(window, cx).default_value(hsla));
-            self.subscriptions.push(cx.subscribe_in(&picker, window, move |this: &mut V, _picker, event: &ColorPickerEvent, _w, cx| {
-                let ColorPickerEvent::Change(Some(value)) = event else { return };
-                let rgba: Rgba = (*value).into();
-                let color = Color::rgba(rgba.r, rgba.g, rgba.b, rgba.a);
-                // The picker echoes values pushed into it; only differences are edits.
-                if get(this, cx).is_some_and(|c| c.to_hex() == color.to_hex()) {
-                    return;
-                }
-                set(this, color, cx);
-            }));
+            self.subscriptions.push(cx.subscribe_in(
+                &picker,
+                window,
+                move |this: &mut V, _picker, event: &ColorPickerEvent, _w, cx| {
+                    let ColorPickerEvent::Change(Some(value)) = event else {
+                        return;
+                    };
+                    let rgba: Rgba = (*value).into();
+                    let color = Color::rgba(rgba.r, rgba.g, rgba.b, rgba.a);
+                    // The picker echoes values pushed into it; only differences are edits.
+                    if get(this, cx).is_some_and(|c| c.to_hex() == color.to_hex()) {
+                        return;
+                    }
+                    set(this, color, cx);
+                },
+            ));
             self.pickers.insert(key.clone(), picker);
         }
         let picker = self.pickers[&key].clone();

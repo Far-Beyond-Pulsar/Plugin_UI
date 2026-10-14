@@ -47,7 +47,13 @@ pub struct Issue<F> {
 
 impl<F> Issue<F> {
     pub fn new(severity: Severity, subject: impl Into<String>, message: impl Into<String>) -> Self {
-        Self { severity, node: None, subject: subject.into(), message: message.into(), fix: None }
+        Self {
+            severity,
+            node: None,
+            subject: subject.into(),
+            message: message.into(),
+            fix: None,
+        }
     }
 
     pub fn on(mut self, node: NodeId) -> Self {

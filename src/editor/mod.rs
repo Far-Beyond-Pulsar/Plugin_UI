@@ -21,8 +21,8 @@ pub mod keys;
 pub mod menus;
 pub mod palette;
 pub mod parameters;
-pub mod value_editor;
 pub mod state;
+pub mod value_editor;
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -73,7 +73,12 @@ pub struct WidgetEditor {
 }
 
 impl WidgetEditor {
-    pub fn new(path: PathBuf, undo: Option<&UndoService>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        path: PathBuf,
+        undo: Option<&UndoService>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let project_root = library::project_root(&path);
         let doc = cx.new(|_| {
             let mut doc = Document::<WidgetAsset>::open(Some(path));
@@ -85,7 +90,13 @@ impl WidgetEditor {
         let sel = cx.new(|_| Selection::default());
         let view = cx.new(|_| View::default());
         let lib = cx.new(|cx| LibraryModel::new(project_root.clone(), cx));
-        let ctx = Ctx { doc: doc.clone(), sel: sel.clone(), view, lib, frame: Rc::new(RefCell::new(None)) };
+        let ctx = Ctx {
+            doc: doc.clone(),
+            sel: sel.clone(),
+            view,
+            lib,
+            frame: Rc::new(RefCell::new(None)),
+        };
 
         // Undo and revert can remove the nodes that are selected.
         let subscriptions = vec![cx.observe(&doc, {
@@ -107,14 +118,29 @@ impl WidgetEditor {
 
         let layout = Layout {
             center: vec![as_panel(designer.clone())],
-            left: Some(Dock::stacked(300.0, vec![vec![as_panel(palette), as_panel(library_panel)], vec![as_panel(hierarchy)]])),
+            left: Some(Dock::stacked(
+                300.0,
+                vec![
+                    vec![as_panel(palette), as_panel(library_panel)],
+                    vec![as_panel(hierarchy)],
+                ],
+            )),
             right: Some(Dock::new(350.0, vec![as_panel(details)])),
             // Side by side rather than tabbed: both are glanceable while designing.
-            bottom: Some(Dock::grouped(250.0, vec![vec![as_panel(parameters)], vec![as_panel(issues)]])),
+            bottom: Some(Dock::grouped(
+                250.0,
+                vec![vec![as_panel(parameters)], vec![as_panel(issues)]],
+            )),
         };
         let workspace = build_workspace("widget-workspace", DOCK_CHANNEL, layout, window, cx);
 
-        Self { ctx, designer, workspace, focus_handle: cx.focus_handle(), _subscriptions: subscriptions }
+        Self {
+            ctx,
+            designer,
+            workspace,
+            focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
+        }
     }
 
     fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -140,21 +166,46 @@ impl WidgetEditor {
             .border_color(theme.border)
             .child(document_controls("widget", &self.ctx.doc, cx))
             .child(toolbar_divider(cx))
-            .child(Icon::new(IconName::Component).size(px(15.0)).text_color(theme.info))
-            .child(div().text_sm().font_semibold().text_color(theme.foreground).child(name))
+            .child(
+                Icon::new(IconName::Component)
+                    .size(px(15.0))
+                    .text_color(theme.info),
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .font_semibold()
+                    .text_color(theme.foreground)
+                    .child(name),
+            )
             .child(
                 Button::new("widget-id")
                     .label(format!("ID {}", id.short()))
                     .ghost()
                     .xsmall()
-                    .tooltip(format!("{id}\nThe stable id other widgets refer to this one by. Click to copy it."))
-                    .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(copy_id.clone()))),
+                    .tooltip(format!(
+                        "{id}\nThe stable id other widgets refer to this one by. Click to copy it."
+                    ))
+                    .on_click(move |_, _, cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(copy_id.clone()))
+                    }),
             )
             .child(div().flex_1())
-            .children(worst.map(|w| match w {
-                Severity::Error => Tag::danger().small().child(format!("{} issues", issues.len())).into_any_element(),
-                Severity::Warning => Tag::warning().small().child(format!("{} issues", issues.len())).into_any_element(),
-                Severity::Info => Tag::info().small().child(format!("{} notes", issues.len())).into_any_element(),
+            .children(worst.map(|w| {
+                match w {
+                    Severity::Error => Tag::danger()
+                        .small()
+                        .child(format!("{} issues", issues.len()))
+                        .into_any_element(),
+                    Severity::Warning => Tag::warning()
+                        .small()
+                        .child(format!("{} issues", issues.len()))
+                        .into_any_element(),
+                    Severity::Info => Tag::info()
+                        .small()
+                        .child(format!("{} notes", issues.len()))
+                        .into_any_element(),
+                }
             }))
             .child(status_tag(&self.ctx.doc, cx))
     }
@@ -169,7 +220,12 @@ impl WidgetEditor {
             .claimants(id)
             .iter()
             .filter(|e| e.path != path && !same_path(&e.path, &path))
-            .map(|e| e.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
+            .map(|e| {
+                e.path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            })
             .collect();
         if others.is_empty() || !library.is_ambiguous(id) {
             return None;
@@ -249,8 +305,12 @@ impl Render for WidgetEditor {
             .flex_col()
             .bg(theme.background)
             // The host's shared Undo/Redo act on this file's history.
-            .on_action(cx.listener(|this, _: &Undo, _, cx| this.ctx.doc.update(cx, |d, cx| d.undo(cx))))
-            .on_action(cx.listener(|this, _: &Redo, _, cx| this.ctx.doc.update(cx, |d, cx| d.redo(cx))))
+            .on_action(
+                cx.listener(|this, _: &Undo, _, cx| this.ctx.doc.update(cx, |d, cx| d.undo(cx))),
+            )
+            .on_action(
+                cx.listener(|this, _: &Redo, _, cx| this.ctx.doc.update(cx, |d, cx| d.redo(cx))),
+            )
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                 if event.keystroke.modifiers.secondary() && event.keystroke.key == "s" {
                     this.ctx.doc.update(cx, |d, cx| d.save(cx));

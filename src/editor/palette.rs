@@ -41,7 +41,12 @@ impl PalettePanel {
                 cx.notify();
             }
         })];
-        Self { ctx, search, focus_handle: cx.focus_handle(), _subscriptions: subscriptions }
+        Self {
+            ctx,
+            search,
+            focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
+        }
     }
 
     fn item(&self, kind: Kind, cx: &mut Context<Self>) -> impl IntoElement {
@@ -59,8 +64,18 @@ impl PalettePanel {
             .rounded(px(5.0))
             .cursor_pointer()
             .hover(|s| s.bg(theme.list_hover))
-            .child(Icon::new(kind_icon(kind)).size(px(15.0)).text_color(theme.info))
-            .child(div().flex_1().text_sm().text_color(theme.foreground).child(info.label))
+            .child(
+                Icon::new(kind_icon(kind))
+                    .size(px(15.0))
+                    .text_color(theme.info),
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .text_sm()
+                    .text_color(theme.foreground)
+                    .child(info.label),
+            )
             .tooltip(move |window, cx| ui::tooltip::Tooltip::new(description).build(window, cx))
             .on_click(move |event, _, cx| {
                 if event.click_count() >= 2 {
@@ -68,7 +83,10 @@ impl PalettePanel {
                 }
             })
             .on_drag(PaletteDrag { kind }, move |drag, _, _, cx| {
-                cx.new(|_| DragGhost { label: drag.kind.info().label.into(), icon: kind_icon(drag.kind) })
+                cx.new(|_| DragGhost {
+                    label: drag.kind.info().label.into(),
+                    icon: kind_icon(drag.kind),
+                })
             })
     }
 }
@@ -83,7 +101,11 @@ impl Render for PalettePanel {
             let kinds: Vec<Kind> = Kind::ALL
                 .into_iter()
                 .filter(|k| *k != Kind::Instance && k.info().category == group)
-                .filter(|k| query.is_empty() || k.info().label.to_lowercase().contains(&query) || k.info().description.to_lowercase().contains(&query))
+                .filter(|k| {
+                    query.is_empty()
+                        || k.info().label.to_lowercase().contains(&query)
+                        || k.info().description.to_lowercase().contains(&query)
+                })
                 .collect();
             if kinds.is_empty() {
                 continue;
@@ -94,8 +116,20 @@ impl Render for PalettePanel {
                     .px_1p5()
                     .pb_2()
                     .gap_0p5()
-                    .child(div().px_2().py_1().text_xs().font_semibold().text_color(theme.muted_foreground).child(group.to_uppercase()))
-                    .children(kinds.into_iter().map(|k| self.item(k, cx).into_any_element())),
+                    .child(
+                        div()
+                            .px_2()
+                            .py_1()
+                            .text_xs()
+                            .font_semibold()
+                            .text_color(theme.muted_foreground)
+                            .child(group.to_uppercase()),
+                    )
+                    .children(
+                        kinds
+                            .into_iter()
+                            .map(|k| self.item(k, cx).into_any_element()),
+                    ),
             );
         }
         let empty = groups.is_empty();
@@ -105,11 +139,33 @@ impl Render for PalettePanel {
             .bg(theme.sidebar)
             .track_focus(&self.focus_handle)
             .child(panel_header(IconName::Component, "Palette", None, cx))
-            .child(div().px_2().py_1p5().border_b_1().border_color(theme.border.opacity(0.6)).child(TextInput::new(&self.search).small().cleanable()))
+            .child(
+                div()
+                    .px_2()
+                    .py_1p5()
+                    .border_b_1()
+                    .border_color(theme.border.opacity(0.6))
+                    .child(TextInput::new(&self.search).small().cleanable()),
+            )
             .child(if empty {
-                div().flex_1().child(empty_message(IconName::Search, "Nothing matches", "No kind of widget has that name", cx)).into_any_element()
+                div()
+                    .flex_1()
+                    .child(empty_message(
+                        IconName::Search,
+                        "Nothing matches",
+                        "No kind of widget has that name",
+                        cx,
+                    ))
+                    .into_any_element()
             } else {
-                v_flex().id("palette-scroll").flex_1().min_h_0().scrollable(ScrollbarAxis::Vertical).py_1().children(groups).into_any_element()
+                v_flex()
+                    .id("palette-scroll")
+                    .flex_1()
+                    .min_h_0()
+                    .scrollable(ScrollbarAxis::Vertical)
+                    .py_1()
+                    .children(groups)
+                    .into_any_element()
             })
             .child(
                 div()
@@ -137,7 +193,8 @@ dock_panel!(LibraryPanel, "widget-library", "Widgets");
 
 impl LibraryPanel {
     pub fn new(ctx: Ctx, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search the project's widgets"));
+        let search =
+            cx.new(|cx| InputState::new(window, cx).placeholder("Search the project's widgets"));
         let subscriptions = vec![
             cx.observe(&ctx.lib, |_, _, cx| cx.notify()),
             cx.observe(&ctx.doc, |_, _, cx| cx.notify()),
@@ -147,7 +204,12 @@ impl LibraryPanel {
                 }
             }),
         ];
-        Self { ctx, search, focus_handle: cx.focus_handle(), _subscriptions: subscriptions }
+        Self {
+            ctx,
+            search,
+            focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
+        }
     }
 }
 
@@ -161,9 +223,18 @@ impl Render for LibraryPanel {
         let usage = library.usage_counts();
         let query = self.search.read(cx).value().trim().to_lowercase();
 
-        let entries: Vec<_> = library.entries().into_iter().filter(|e| query.is_empty() || e.name.to_lowercase().contains(&query)).collect();
+        let entries: Vec<_> = library
+            .entries()
+            .into_iter()
+            .filter(|e| query.is_empty() || e.name.to_lowercase().contains(&query))
+            .collect();
         let conflicts = library.conflicts().len();
-        let needs_id: Vec<std::path::PathBuf> = library.problems().iter().filter(|p| p.kind == ProblemKind::NoId).map(|p| p.path.clone()).collect();
+        let needs_id: Vec<std::path::PathBuf> = library
+            .problems()
+            .iter()
+            .filter(|p| p.kind == ProblemKind::NoId)
+            .map(|p| p.path.clone())
+            .collect();
         let root = library.root().to_path_buf();
 
         let rows: Vec<AnyElement> = entries
@@ -176,7 +247,12 @@ impl Render for LibraryPanel {
                 let ambiguous = library.is_ambiguous(&entry.id);
                 let blocked = is_self || cycles || ambiguous;
                 let used = usage.get(&entry.id).copied().unwrap_or(0);
-                let relative = entry.path.strip_prefix(&root).unwrap_or(&entry.path).to_string_lossy().replace('\\', "/");
+                let relative = entry
+                    .path
+                    .strip_prefix(&root)
+                    .unwrap_or(&entry.path)
+                    .to_string_lossy()
+                    .replace('\\', "/");
                 let path = entry.path.clone();
                 let ctx = self.ctx.clone();
                 let (open_path, copy_id) = (entry.path.clone(), entry.id.to_string());
@@ -198,18 +274,38 @@ impl Render for LibraryPanel {
                     .gap_2()
                     .items_center()
                     .rounded(px(5.0))
-                    .when(!blocked, |d| d.cursor_pointer().hover(|s| s.bg(theme.list_hover)))
+                    .when(!blocked, |d| {
+                        d.cursor_pointer().hover(|s| s.bg(theme.list_hover))
+                    })
                     .opacity(if blocked { 0.5 } else { 1.0 })
-                    .child(Icon::new(IconName::Component).size(px(15.0)).text_color(if is_self { theme.warning } else { theme.info }))
+                    .child(
+                        Icon::new(IconName::Component)
+                            .size(px(15.0))
+                            .text_color(if is_self { theme.warning } else { theme.info }),
+                    )
                     .child(
                         v_flex()
                             .flex_1()
                             .min_w_0()
-                            .child(div().text_sm().text_color(theme.foreground).truncate().child(name.clone()))
-                            .child(div().text_xs().text_color(theme.muted_foreground).truncate().child(relative)),
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(theme.foreground)
+                                    .truncate()
+                                    .child(name.clone()),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .truncate()
+                                    .child(relative),
+                            ),
                     )
                     .children((used > 0).then(|| Tag::secondary().small().child(format!("{used}"))))
-                    .tooltip(move |window, cx| ui::tooltip::Tooltip::new(tip.clone()).build(window, cx))
+                    .tooltip(move |window, cx| {
+                        ui::tooltip::Tooltip::new(tip.clone()).build(window, cx)
+                    })
                     .on_click({
                         let id = id.clone();
                         let name = name.clone();
@@ -221,15 +317,28 @@ impl Render for LibraryPanel {
                     })
                     .when(!blocked, |d| {
                         let (id, name) = (id.clone(), name.clone());
-                        d.on_drag(LibraryDrag { id: id.clone(), name: name.clone() }, move |drag, _, _, cx| {
-                            cx.new(|_| DragGhost { label: drag.name.clone().into(), icon: IconName::Component })
-                        })
+                        d.on_drag(
+                            LibraryDrag {
+                                id: id.clone(),
+                                name: name.clone(),
+                            },
+                            move |drag, _, _, cx| {
+                                cx.new(|_| DragGhost {
+                                    label: drag.name.clone().into(),
+                                    icon: IconName::Component,
+                                })
+                            },
+                        )
                     })
                     .context_menu(move |menu, _, _| {
                         let (p, id_text) = (open_path.clone(), copy_id.clone());
                         let _ = &path;
-                        menu.menu_handler("Open", move |window, cx| window.dispatch_action(Box::new(OpenAsset { path: p.clone() }), cx))
-                            .menu_handler("Copy id", move |_, cx| cx.write_to_clipboard(ClipboardItem::new_string(id_text.clone())))
+                        menu.menu_handler("Open", move |window, cx| {
+                            window.dispatch_action(Box::new(OpenAsset { path: p.clone() }), cx)
+                        })
+                        .menu_handler("Copy id", move |_, cx| {
+                            cx.write_to_clipboard(ClipboardItem::new_string(id_text.clone()))
+                        })
                     })
                     .into_any_element()
             })
@@ -237,7 +346,12 @@ impl Render for LibraryPanel {
 
         let refresh = {
             let lib = self.ctx.lib.clone();
-            Button::new("library-refresh").icon(IconName::Refresh).ghost().small().tooltip("Look for widgets again").on_click(move |_, _, cx| lib.update(cx, |l, cx| l.refresh(cx)))
+            Button::new("library-refresh")
+                .icon(IconName::Refresh)
+                .ghost()
+                .small()
+                .tooltip("Look for widgets again")
+                .on_click(move |_, _, cx| lib.update(cx, |l, cx| l.refresh(cx)))
         };
 
         let stamp = (!needs_id.is_empty()).then(|| {
@@ -250,15 +364,28 @@ impl Render for LibraryPanel {
                 .gap_1p5()
                 .border_t_1()
                 .border_color(theme.border.opacity(0.6))
-                .child(div().text_xs().text_color(theme.foreground.opacity(0.9)).child(format!("{} widget file(s) have no id yet, so nothing can refer to them.", paths.len())))
-                .child(Button::new("library-assign-ids").label("Give them ids").small().on_click(move |_, _, cx| {
-                    for p in &paths {
-                        if let Err(error) = crate::library::stamp_file(p) {
-                            tracing::warn!("couldn't give {} an id: {error}", p.display());
-                        }
-                    }
-                    lib.update(cx, |l, cx| l.refresh(cx));
-                }))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.foreground.opacity(0.9))
+                        .child(format!(
+                            "{} widget file(s) have no id yet, so nothing can refer to them.",
+                            paths.len()
+                        )),
+                )
+                .child(
+                    Button::new("library-assign-ids")
+                        .label("Give them ids")
+                        .small()
+                        .on_click(move |_, _, cx| {
+                            for p in &paths {
+                                if let Err(error) = crate::library::stamp_file(p) {
+                                    tracing::warn!("couldn't give {} an id: {error}", p.display());
+                                }
+                            }
+                            lib.update(cx, |l, cx| l.refresh(cx));
+                        }),
+                )
         });
 
         v_flex()
@@ -273,25 +400,52 @@ impl Render for LibraryPanel {
                         .gap_1()
                         .items_center()
                         .children(scanning.then(|| Tag::info().small().child("Scanning")))
-                        .children((conflicts > 0).then(|| Tag::warning().small().child(format!("{conflicts} id conflict(s)"))))
+                        .children((conflicts > 0).then(|| {
+                            Tag::warning()
+                                .small()
+                                .child(format!("{conflicts} id conflict(s)"))
+                        }))
                         .child(refresh)
                         .into_any_element(),
                 ),
                 cx,
             ))
-            .child(div().px_2().py_1p5().border_b_1().border_color(theme.border.opacity(0.6)).child(TextInput::new(&self.search).small().cleanable()))
+            .child(
+                div()
+                    .px_2()
+                    .py_1p5()
+                    .border_b_1()
+                    .border_color(theme.border.opacity(0.6))
+                    .child(TextInput::new(&self.search).small().cleanable()),
+            )
             .child(if rows.is_empty() {
                 div()
                     .flex_1()
                     .child(empty_message(
                         IconName::Component,
-                        if query.is_empty() { "No other widgets yet" } else { "Nothing matches" },
-                        if query.is_empty() { "Create more .widget files and they appear here, ready to nest" } else { "No widget has that name" },
+                        if query.is_empty() {
+                            "No other widgets yet"
+                        } else {
+                            "Nothing matches"
+                        },
+                        if query.is_empty() {
+                            "Create more .widget files and they appear here, ready to nest"
+                        } else {
+                            "No widget has that name"
+                        },
                         cx,
                     ))
                     .into_any_element()
             } else {
-                v_flex().id("library-scroll").flex_1().min_h_0().scrollable(ScrollbarAxis::Vertical).p_1p5().gap_0p5().children(rows).into_any_element()
+                v_flex()
+                    .id("library-scroll")
+                    .flex_1()
+                    .min_h_0()
+                    .scrollable(ScrollbarAxis::Vertical)
+                    .p_1p5()
+                    .gap_0p5()
+                    .children(rows)
+                    .into_any_element()
             })
             .children(stamp)
     }

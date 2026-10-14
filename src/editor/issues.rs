@@ -23,8 +23,15 @@ dock_panel!(IssuesPanel, "widget-issues", "Issues");
 
 impl IssuesPanel {
     pub fn new(ctx: Ctx, cx: &mut Context<Self>) -> Self {
-        let subscriptions = vec![cx.observe(&ctx.doc, |_, _, cx| cx.notify()), cx.observe(&ctx.lib, |_, _, cx| cx.notify())];
-        Self { ctx, focus_handle: cx.focus_handle(), _subscriptions: subscriptions }
+        let subscriptions = vec![
+            cx.observe(&ctx.doc, |_, _, cx| cx.notify()),
+            cx.observe(&ctx.lib, |_, _, cx| cx.notify()),
+        ];
+        Self {
+            ctx,
+            focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
+        }
     }
 }
 
@@ -45,7 +52,11 @@ impl Render for IssuesPanel {
         let library = self.ctx.library_now(cx);
         let issues = self.ctx.widget(cx).validate(&library);
         let count = |s: Severity| issues.iter().filter(|i| i.severity == s).count();
-        let (errors, warnings, notes) = (count(Severity::Error), count(Severity::Warning), count(Severity::Info));
+        let (errors, warnings, notes) = (
+            count(Severity::Error),
+            count(Severity::Warning),
+            count(Severity::Info),
+        );
         let fixable = issues.iter().any(|i| i.fix.is_some());
 
         let rows: Vec<AnyElement> = issues
@@ -54,7 +65,8 @@ impl Render for IssuesPanel {
             .map(|(n, issue)| {
                 let (ctx, select) = (self.ctx.clone(), self.ctx.clone());
                 let node = issue.node;
-                let fixes: Vec<(String, WidgetFix)> = issue.fix.iter().map(|f| (f.label(), f.clone())).collect();
+                let fixes: Vec<(String, WidgetFix)> =
+                    issue.fix.iter().map(|f| (f.label(), f.clone())).collect();
                 div()
                     .id(SharedString::from(format!("widget-issue-{n}")))
                     .w_full()
@@ -64,21 +76,39 @@ impl Render for IssuesPanel {
                             select.select(vec![node], cx);
                         }
                     })
-                    .child(issue_row(SharedString::from(format!("widget-issue-fix-{n}")), issue, fixes, move |fix, _, cx| apply(&ctx, &fix, cx), cx))
+                    .child(issue_row(
+                        SharedString::from(format!("widget-issue-fix-{n}")),
+                        issue,
+                        fixes,
+                        move |fix, _, cx| apply(&ctx, &fix, cx),
+                        cx,
+                    ))
                     .into_any_element()
             })
             .collect();
 
         let body = if rows.is_empty() {
-            div().w_full().p_3().child(all_clear("No problems found", cx)).into_any_element()
+            div()
+                .w_full()
+                .p_3()
+                .child(all_clear("No problems found", cx))
+                .into_any_element()
         } else {
-            v_flex().w_full().p_3().gap_1p5().children(rows).into_any_element()
+            v_flex()
+                .w_full()
+                .p_3()
+                .gap_1p5()
+                .children(rows)
+                .into_any_element()
         };
 
         let tags = h_flex()
             .gap_1()
             .children((errors > 0).then(|| Tag::danger().small().child(format!("{errors} errors"))))
-            .children((warnings > 0).then(|| Tag::warning().small().child(format!("{warnings} warnings"))))
+            .children(
+                (warnings > 0)
+                    .then(|| Tag::warning().small().child(format!("{warnings} warnings"))),
+            )
             .children((notes > 0).then(|| Tag::info().small().child(format!("{notes} notes"))));
 
         let ctx = self.ctx.clone();
@@ -94,26 +124,51 @@ impl Render for IssuesPanel {
                         .gap_2()
                         .items_center()
                         .child(tags)
-                        .child(Button::new("widget-fix-all").label("Fix all").small().disabled(!fixable).tooltip("Apply every suggested repair").on_click(move |_, _, cx| {
-                            let library = ctx.library_now(cx);
-                            ctx.doc.update(cx, |d, cx| {
-                                d.edit("Fix all problems", None, cx, |w| {
-                                    for _ in 0..8 {
-                                        let fixes: Vec<WidgetFix> = w.validate(&library).into_iter().filter_map(|i| i.fix).filter(|f| !matches!(f, WidgetFix::NewWidgetId | WidgetFix::UpdateNameHint { .. })).collect();
-                                        if fixes.is_empty() {
-                                            break;
-                                        }
-                                        for fix in fixes {
-                                            w.apply_fix(&fix);
-                                        }
-                                    }
-                                })
-                            })
-                        }))
+                        .child(
+                            Button::new("widget-fix-all")
+                                .label("Fix all")
+                                .small()
+                                .disabled(!fixable)
+                                .tooltip("Apply every suggested repair")
+                                .on_click(move |_, _, cx| {
+                                    let library = ctx.library_now(cx);
+                                    ctx.doc.update(cx, |d, cx| {
+                                        d.edit("Fix all problems", None, cx, |w| {
+                                            for _ in 0..8 {
+                                                let fixes: Vec<WidgetFix> = w
+                                                    .validate(&library)
+                                                    .into_iter()
+                                                    .filter_map(|i| i.fix)
+                                                    .filter(|f| {
+                                                        !matches!(
+                                                            f,
+                                                            WidgetFix::NewWidgetId
+                                                                | WidgetFix::UpdateNameHint { .. }
+                                                        )
+                                                    })
+                                                    .collect();
+                                                if fixes.is_empty() {
+                                                    break;
+                                                }
+                                                for fix in fixes {
+                                                    w.apply_fix(&fix);
+                                                }
+                                            }
+                                        })
+                                    })
+                                }),
+                        )
                         .into_any_element(),
                 ),
                 cx,
             ))
-            .child(v_flex().id("widget-issues-scroll").flex_1().min_h_0().scrollable(ScrollbarAxis::Vertical).child(body))
+            .child(
+                v_flex()
+                    .id("widget-issues-scroll")
+                    .flex_1()
+                    .min_h_0()
+                    .scrollable(ScrollbarAxis::Vertical)
+                    .child(body),
+            )
     }
 }
