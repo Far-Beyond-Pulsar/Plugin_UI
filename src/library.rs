@@ -474,9 +474,11 @@ mod tests {
             .iter()
             .all(|i| i.severity < crate::model::Severity::Error));
 
-        // Rename and move the file; nothing inside any file changes.
+        // Rename and move the file; nothing inside any file changes. The move
+        // goes through the engine's filesystem, as the editor's does, which
+        // keeps the project file index the library reads current.
         std::fs::create_dir_all(dir.join("shared")).unwrap();
-        std::fs::rename(&card_path, dir.join("shared/ItemCard.widget")).unwrap();
+        engine_fs::virtual_fs::rename(&card_path, &dir.join("shared/ItemCard.widget")).unwrap();
         let after = Library::scan(&dir);
         assert_eq!(
             after.path_of(&card.id),
