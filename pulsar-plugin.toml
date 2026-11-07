@@ -1,0 +1,15 @@
+# The `pulsar.ui` plugin's descriptor. A project enables or disables it in
+# its Pulsar.toml (`[plugins]`); disabled, its editors and file types are
+# absent (see crates/core/pulsar_plugins). Its first module carries this file
+# (`pulsar_plugins::installed!`).
+id = "pulsar.ui"
+name = "UI"
+description = "Widget assets (.widget) and the widget editor"
+enabled_by_default = true
+requires = []
+
+[modules]
+# What a game built for the project links.
+runtime = []
+# What the editor links in addition.
+editor = ["ui_editor_plugin"]
