@@ -12,7 +12,7 @@ use ui::input::{NumberInput, TextInput};
 use ui::menu::DropdownMenu;
 use ui::switch::Switch;
 use ui::{h_flex, ActiveTheme, Disableable, Sizable, Size};
-use ui_common::MeshAssetPicker;
+use ui_common::AssetPicker;
 
 use crate::model::geom::{json_array2, json_array4, num, Color};
 use crate::model::schema::{PropType, ValueClass};
@@ -185,7 +185,7 @@ pub fn value_editor<V: 'static>(
                 .items_center()
                 .child(
                     div().flex_1().min_w_0().child(
-                        ui::popover::Popover::<MeshAssetPicker>::new(SharedString::from(format!(
+                        ui::popover::Popover::<AssetPicker>::new(SharedString::from(format!(
                             "{key}-image-popover"
                         )))
                         .anchor(Corner::BottomLeft)

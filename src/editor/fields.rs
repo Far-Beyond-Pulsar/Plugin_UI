@@ -13,7 +13,7 @@ use std::rc::Rc;
 use gpui::*;
 use ui::color_picker::{ColorPickerEvent, ColorPickerState};
 use ui::input::{InputEvent, InputState, NumberInputEvent, StepAction};
-use ui_common::{AssetPickedEvent, AssetQuery, MeshAssetPicker};
+use ui_common::{AssetPickedEvent, AssetPicker, AssetQuery};
 
 use crate::model::Color;
 
@@ -39,7 +39,7 @@ pub fn format_number(v: f32, decimals: usize) -> String {
 pub struct Fields<V: 'static> {
     inputs: HashMap<String, Entity<InputState>>,
     pickers: HashMap<String, Entity<ColorPickerState>>,
-    images: HashMap<String, Entity<MeshAssetPicker>>,
+    images: HashMap<String, Entity<AssetPicker>>,
     /// The project the image picker searches.
     root: std::path::PathBuf,
     subscriptions: Vec<Subscription>,
@@ -89,12 +89,12 @@ impl<V: 'static> Fields<V> {
         set: impl Fn(&mut V, String, &mut Context<V>) + 'static,
         window: &mut Window,
         cx: &mut Context<V>,
-    ) -> Entity<MeshAssetPicker> {
+    ) -> Entity<AssetPicker> {
         let current_path = resolve_image_path(&self.root, current);
         if !self.images.contains_key(&key) {
             let root = (!self.root.as_os_str().is_empty()).then(|| self.root.clone());
             let picker = cx.new(|cx| {
-                MeshAssetPicker::new(
+                AssetPicker::new(
                     current_path.clone(),
                     Vec::new(),
                     root,
