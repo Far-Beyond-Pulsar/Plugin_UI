@@ -48,6 +48,7 @@ impl BuiltinEditorProvider for WidgetEditorBuiltinProvider {
 plugin_manager::inventory::submit! {
     plugin_manager::PluginEditorProvider {
         origin: pulsar_plugins::origin!(),
+        id: "com.pulsar.ui-editor",
         create: || Arc::new(WidgetEditorBuiltinProvider),
     }
 }
