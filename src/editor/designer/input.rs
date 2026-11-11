@@ -891,7 +891,7 @@ impl DesignerPanel {
             "widget" => {
                 let library = self.ctx.lib.read(cx).library();
                 let id = library.id_at(&absolute).cloned().or_else(|| {
-                    std::fs::read_to_string(&absolute)
+                    engine_fs::virtual_fs::read_to_string(&absolute)
                         .ok()
                         .and_then(|t| crate::model::WidgetAsset::peek_id(&t))
                 });

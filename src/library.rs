@@ -34,8 +34,8 @@ pub fn project_root(file: &Path) -> PathBuf {
     let start = file.parent().unwrap_or(file);
     let ancestors = || start.ancestors();
     ancestors()
-        .find(|d| d.join("Pulsar.toml").is_file())
-        .or_else(|| ancestors().find(|d| d.join(".pulsar").is_dir()))
+        .find(|d| engine_fs::virtual_fs::is_file(&d.join("Pulsar.toml")))
+        .or_else(|| ancestors().find(|d| engine_fs::virtual_fs::is_dir(&d.join(".pulsar"))))
         .unwrap_or(start)
         .to_path_buf()
 }
@@ -110,7 +110,7 @@ impl Library {
                 tracing::warn!(%error, path = %path.display(), "Could not clear stale widget ID index entry");
             }
         }
-        let text = match std::fs::read_to_string(path) {
+        let text = match engine_fs::virtual_fs::read_to_string(path) {
             Ok(text) => text,
             Err(error) => {
                 self.problems.push(Problem {
@@ -325,7 +325,10 @@ fn same_file(a: &Path, b: &Path) -> bool {
     if a == b {
         return true;
     }
-    match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
+    match (
+        engine_fs::virtual_fs::canonicalize(a),
+        engine_fs::virtual_fs::canonicalize(b),
+    ) {
         (Ok(a), Ok(b)) => a == b,
         _ => false,
     }
@@ -389,12 +392,13 @@ fn widget_paths_from_manifest(root: &Path) -> Vec<PathBuf> {
 /// Write `id` into the widget file at `path` if it has none, changing nothing
 /// else. Used to give older or hand-made files their stable id.
 pub fn stamp_file(path: &Path) -> Result<WidgetId, String> {
-    let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let text = engine_fs::virtual_fs::read_to_string(path).map_err(|e| e.to_string())?;
     let (mut widget, _) = WidgetAsset::parse(&text)?;
     if !widget.stamp() {
         return Ok(widget.id);
     }
-    std::fs::write(path, widget.to_text()).map_err(|e| e.to_string())?;
+    engine_fs::virtual_fs::write_file(path, widget.to_text().as_bytes())
+        .map_err(|e| e.to_string())?;
     Ok(widget.id)
 }
 
