@@ -1,5 +1,6 @@
 //! The plugin's editor provider: its file types and editors, offered to
-//! the editor while the plugin is enabled (`plugin_manager::PluginEditorProvider`).
+//! the editor while the plugin is enabled (`plugin_manager::PluginEditorProvider`,
+//! registered by the root's `build`).
 
 use gpui::{App, Window};
 use plugin_editor_api::*;
@@ -45,10 +46,11 @@ impl BuiltinEditorProvider for WidgetEditorBuiltinProvider {
     }
 }
 
-plugin_manager::inventory::submit! {
-    plugin_manager::PluginEditorProvider {
-        origin: pulsar_plugins::origin!(),
+/// Registers the editor provider.
+pub(crate) fn build(p: &mut pulsar_plugins::PluginBuilder) {
+    p.add(plugin_manager::PluginEditorProvider {
+        origin: p.origin(),
         id: "com.pulsar.ui-editor",
         create: || Arc::new(WidgetEditorBuiltinProvider),
-    }
+    });
 }
