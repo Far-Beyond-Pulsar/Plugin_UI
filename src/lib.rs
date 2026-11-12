@@ -94,12 +94,6 @@ impl EditorPluginComponents for UiEditorPlugin {
         Vec::new()
     }
 }
-impl EditorPluginSubsystems for UiEditorPlugin {
-    fn subsystems(&self) -> Vec<Box<dyn Subsystem>> {
-        Vec::new()
-    }
-}
-
 impl UiEditorPlugin {
     /// Open `path` in a widget editor (for hosts that link this crate).
     /// `undo` is the host's undo service; with it, every view of a file
