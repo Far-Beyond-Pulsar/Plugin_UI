@@ -1,0 +1,53 @@
+{
+  "format": 1,
+  "id": "6f1d2c3a-0a11-4b7e-9c10-00000000a003",
+  "design_size": [1920, 1080],
+  "description": "Example: a settings form. A Scroll Box holds a Grid of labelled input controls: a Check Box, a Slider, a Combo Box and a Text Input. Shows the Grid column_sizes and the per-child column/row slots.",
+  "next_node_id": 15,
+  "root": {
+    "id": 1,
+    "name": "Root",
+    "kind": "border",
+    "props": { "background": "#171a22", "corner_radius": [10, 10, 10, 10], "border_color": "#ffffff1a", "border_width": 1 },
+    "children": [
+      {
+        "id": 2,
+        "name": "Scroll",
+        "kind": "scroll_box",
+        "comment": "A Scroll Box scrolls its children when they do not fit.",
+        "props": { "orientation": "vertical", "scrollbar_visible": true },
+        "slot": { "padding": [16, 16, 16, 16] },
+        "children": [
+          {
+            "id": 3,
+            "name": "Form",
+            "kind": "grid",
+            "comment": "column_sizes: the first column takes 1 share of the leftover space, the second 2. row_sizes: every row is sized to its content (the last entry repeats).",
+            "props": { "column_sizes": "1, 2", "row_sizes": "auto", "gap": [12, 14] },
+            "children": [
+              { "id": 4, "name": "FullscreenLabel", "kind": "text", "props": { "text": "Fullscreen" }, "slot": { "column": 0, "row": 0, "v_align": "center" } },
+              { "id": 5, "name": "Fullscreen", "kind": "check_box", "props": { "label": "Enabled", "checked": true, "action": "settings.fullscreen" }, "slot": { "column": 1, "row": 0 } },
+              { "id": 6, "name": "VolumeLabel", "kind": "text", "props": { "text": "Volume" }, "slot": { "column": 0, "row": 1, "v_align": "center" } },
+              { "id": 7, "name": "Volume", "kind": "slider", "props": { "value": 0.8, "min": 0, "max": 1, "action": "settings.volume" }, "slot": { "column": 1, "row": 1, "v_align": "center" } },
+              { "id": 8, "name": "QualityLabel", "kind": "text", "props": { "text": "Quality" }, "slot": { "column": 0, "row": 2, "v_align": "center" } },
+              { "id": 9, "name": "Quality", "kind": "combo_box", "comment": "options is one choice per line.", "props": { "options": "Low\nMedium\nHigh\nUltra", "action": "settings.quality" }, "slot": { "column": 1, "row": 2 } },
+              { "id": 10, "name": "NameLabel", "kind": "text", "props": { "text": "Player name" }, "slot": { "column": 0, "row": 3, "v_align": "center" } },
+              { "id": 11, "name": "PlayerName", "kind": "text_input", "props": { "hint": "Enter a name", "action": "settings.name" }, "slot": { "column": 1, "row": 3 } },
+              { "id": 12, "name": "Gap", "kind": "spacer", "props": { "size": [0, 8] }, "slot": { "column": 0, "row": 4, "column_span": 2 } },
+              {
+                "id": 13,
+                "name": "ApplyButton",
+                "kind": "button",
+                "props": { "action": "settings.apply" },
+                "slot": { "column": 1, "row": 5, "h_align": "right" },
+                "children": [
+                  { "id": 14, "name": "ApplyLabel", "kind": "text", "props": { "text": "Apply" } }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

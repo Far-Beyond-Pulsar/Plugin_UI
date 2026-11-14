@@ -1,0 +1,69 @@
+{
+  "format": 1,
+  "id": "6f1d2c3a-0a11-4b7e-9c10-00000000a005",
+  "design_size": [1920, 1080],
+  "description": "Example: widgets built from other widgets. This one instances DialogFrame by its stable id (never by file name or path, so renaming or moving the file breaks nothing), sets its Title parameter, and fills its Content slot with a message and two buttons.",
+  "next_node_id": 10,
+  "root": {
+    "id": 1,
+    "name": "Root",
+    "kind": "canvas",
+    "children": [
+      {
+        "id": 2,
+        "name": "Frame",
+        "kind": "widget",
+        "comment": "An instance node. widget is the id of DialogFrame.widget; widget_name is only a hint shown if it cannot be found. overrides maps the instanced widget parameter ids to values: parameter 1 is Title.",
+        "widget": "6f1d2c3a-0a11-4b7e-9c10-00000000a004",
+        "widget_name": "DialogFrame",
+        "overrides": { "1": "Quit to desktop?" },
+        "slot": {
+          "anchor_min": [0.5, 0.5],
+          "anchor_max": [0.5, 0.5],
+          "offsets": [0, 0, 460, 0],
+          "alignment": [0.5, 0.5],
+          "auto_size": true
+        },
+        "children": [
+          {
+            "id": 3,
+            "name": "ContentBody",
+            "kind": "vertical_box",
+            "comment": "A child of an instance fills one of the instanced widget named slots, chosen by for_slot.",
+            "for_slot": "Content",
+            "children": [
+              { "id": 4, "name": "Message", "kind": "text", "props": { "text": "Unsaved progress will be lost.", "wrap": true, "color": "#c9ced9" }, "slot": { "padding": [0, 0, 0, 16] } },
+              {
+                "id": 5,
+                "name": "Buttons",
+                "kind": "horizontal_box",
+                "children": [
+                  {
+                    "id": 6,
+                    "name": "Cancel",
+                    "kind": "button",
+                    "props": { "action": "dialog.cancel" },
+                    "slot": { "size_rule": "fill", "padding": [0, 0, 8, 0] },
+                    "children": [
+                      { "id": 7, "name": "CancelLabel", "kind": "text", "props": { "text": "Cancel", "justify": "center" } }
+                    ]
+                  },
+                  {
+                    "id": 8,
+                    "name": "Confirm",
+                    "kind": "button",
+                    "props": { "action": "dialog.confirm", "normal_color": "#5a2a2f", "hover_color": "#7a363d" },
+                    "slot": { "size_rule": "fill" },
+                    "children": [
+                      { "id": 9, "name": "ConfirmLabel", "kind": "text", "props": { "text": "Quit", "justify": "center" } }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

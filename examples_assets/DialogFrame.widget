@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "id": "6f1d2c3a-0a11-4b7e-9c10-00000000a004",
+  "design_size": [1920, 1080],
+  "description": "Example: a reusable dialog frame with a hole in it. The Named Slot called Content can be filled by whoever instances this widget; the title is a parameter. See ConfirmDialog.widget, which fills the slot.",
+  "parameters": [
+    {
+      "id": 1,
+      "name": "Title",
+      "type": "text",
+      "default": "Dialog",
+      "description": "The dialog heading.",
+      "targets": [{ "node": 4, "prop": "text" }]
+    }
+  ],
+  "next_node_id": 6,
+  "next_param_id": 2,
+  "root": {
+    "id": 1,
+    "name": "Root",
+    "kind": "border",
+    "props": {
+      "background": "#20242f",
+      "border_color": "#ffffff2a",
+      "border_width": 1,
+      "corner_radius": [10, 10, 10, 10],
+      "shadow_color": "#00000099",
+      "shadow_blur": 20
+    },
+    "children": [
+      {
+        "id": 2,
+        "name": "Layout",
+        "kind": "vertical_box",
+        "slot": { "padding": [20, 16, 20, 20] },
+        "children": [
+          { "id": 4, "name": "TitleText", "kind": "text", "props": { "text": "Dialog", "font_size": 22, "weight": "bold" }, "slot": { "padding": [0, 0, 0, 12] } },
+          {
+            "id": 5,
+            "name": "Content",
+            "kind": "named_slot",
+            "comment": "A Named Slot: its node name is the slot name. An instance fills it by adding a child with for_slot set to Content."
+          }
+        ]
+      }
+    ]
+  }
+}

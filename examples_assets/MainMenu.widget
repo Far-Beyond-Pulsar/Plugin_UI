@@ -1,0 +1,92 @@
+{
+  "format": 1,
+  "id": "6f1d2c3a-0a11-4b7e-9c10-00000000a001",
+  "design_size": [1920, 1080],
+  "description": "Example: a main menu. A Canvas root pins a dark Border panel to the centre of the screen; inside it a Vertical Box stacks a title and three Buttons. Shows anchors (canvas slots), box slots (size_rule, padding, alignment) and button actions.",
+  "next_node_id": 12,
+  "root": {
+    "id": 1,
+    "name": "Root",
+    "kind": "canvas",
+    "comment": "The root is a Canvas: children are placed by anchors. anchor_min == anchor_max pins a point; offsets are then [x, y, width, height] from that point.",
+    "children": [
+      {
+        "id": 2,
+        "name": "Backdrop",
+        "kind": "image",
+        "comment": "A flat colour: an Image with no source draws its tint. Anchors 0,0 to 1,1 stretch it over the whole screen; offsets are the margins.",
+        "props": { "tint": "#0b0d12" },
+        "slot": { "anchor_min": [0, 0], "anchor_max": [1, 1], "offsets": [0, 0, 0, 0] }
+      },
+      {
+        "id": 3,
+        "name": "Panel",
+        "kind": "border",
+        "comment": "The panel is centred (anchor 0.5,0.5; alignment 0.5,0.5) and 420 px wide; auto_size lets its height follow its content.",
+        "props": {
+          "background": "#1b1f2acc",
+          "border_color": "#ffffff22",
+          "border_width": 1,
+          "corner_radius": [12, 12, 12, 12],
+          "shadow_color": "#00000088",
+          "shadow_blur": 24
+        },
+        "slot": {
+          "anchor_min": [0.5, 0.5],
+          "anchor_max": [0.5, 0.5],
+          "offsets": [0, 0, 420, 0],
+          "alignment": [0.5, 0.5],
+          "auto_size": true
+        },
+        "children": [
+          {
+            "id": 4,
+            "name": "Menu",
+            "kind": "vertical_box",
+            "comment": "A Vertical Box stacks its children top to bottom. Each child has a box slot that says how it sizes (auto or fill), its padding and its alignment.",
+            "slot": { "padding": [32, 32, 32, 32] },
+            "children": [
+              {
+                "id": 5,
+                "name": "Title",
+                "kind": "text",
+                "props": { "text": "PULSAR", "font_size": 44, "weight": "bold", "justify": "center", "color": "#f2f4f8" },
+                "slot": { "padding": [0, 0, 0, 24] }
+              },
+              {
+                "id": 6,
+                "name": "PlayButton",
+                "kind": "button",
+                "comment": "action is the name a script listens for when the button is clicked.",
+                "props": { "action": "menu.play", "normal_color": "#2f6fe4", "hover_color": "#4a86f0", "pressed_color": "#2458b8" },
+                "slot": { "padding": [0, 0, 0, 12] },
+                "children": [
+                  { "id": 7, "name": "PlayLabel", "kind": "text", "props": { "text": "Play", "font_size": 20, "justify": "center" }, "slot": { "h_align": "center" } }
+                ]
+              },
+              {
+                "id": 8,
+                "name": "OptionsButton",
+                "kind": "button",
+                "props": { "action": "menu.options" },
+                "slot": { "padding": [0, 0, 0, 12] },
+                "children": [
+                  { "id": 9, "name": "OptionsLabel", "kind": "text", "props": { "text": "Options", "font_size": 20, "justify": "center" }, "slot": { "h_align": "center" } }
+                ]
+              },
+              {
+                "id": 10,
+                "name": "QuitButton",
+                "kind": "button",
+                "props": { "action": "menu.quit", "normal_color": "#5a2a2f", "hover_color": "#7a363d" },
+                "children": [
+                  { "id": 11, "name": "QuitLabel", "kind": "text", "props": { "text": "Quit", "font_size": 20, "justify": "center" }, "slot": { "h_align": "center" } }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

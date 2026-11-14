@@ -140,9 +140,13 @@ pulsar_plugins::installed!("pulsar-plugin.toml", build);
 /// feature).
 #[cfg_attr(not(feature = "builtin"), allow(unused_variables))]
 pub fn build(p: &mut pulsar_plugins::PluginBuilder) {
+    examples::build(p);
     #[cfg(feature = "builtin")]
     builtin_provider::build(p);
 }
+
+/// The plugin's example widgets, served as `examples/` in its folder.
+mod examples;
 
 /// The plugin's editor provider, registered by `build` (origin-gated).
 #[cfg(feature = "builtin")]

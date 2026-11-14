@@ -1,0 +1,57 @@
+{
+  "format": 1,
+  "id": "6f1d2c3a-0a11-4b7e-9c10-00000000a002",
+  "design_size": [1920, 1080],
+  "description": "Example: a reusable HUD health bar with parameters. Three parameters (Label, Health, BarColor) drive properties of nodes inside it, so whoever instances this widget sets them without opening it. See HudScreen.widget for instances.",
+  "parameters": [
+    {
+      "id": 1,
+      "name": "Label",
+      "type": "text",
+      "default": "HEALTH",
+      "description": "The caption shown above the bar.",
+      "targets": [{ "node": 3, "prop": "text" }]
+    },
+    {
+      "id": 2,
+      "name": "Health",
+      "type": "number",
+      "default": 0.75,
+      "description": "Fill amount from 0 to 1.",
+      "targets": [{ "node": 4, "prop": "percent" }]
+    },
+    {
+      "id": 3,
+      "name": "BarColor",
+      "type": "color",
+      "default": "#d94a4a",
+      "description": "Colour of the filled part.",
+      "targets": [{ "node": 4, "prop": "fill_color" }]
+    }
+  ],
+  "next_node_id": 5,
+  "next_param_id": 4,
+  "root": {
+    "id": 1,
+    "name": "Root",
+    "kind": "vertical_box",
+    "comment": "A parameter has a stable id; its targets point at node ids and property keys. Renaming a node or the parameter never breaks an instance.",
+    "children": [
+      {
+        "id": 2,
+        "name": "Caption",
+        "kind": "horizontal_box",
+        "children": [
+          { "id": 3, "name": "LabelText", "kind": "text", "props": { "text": "HEALTH", "font_size": 13, "weight": "semibold", "color": "#c9ced9" } }
+        ]
+      },
+      {
+        "id": 4,
+        "name": "Bar",
+        "kind": "progress_bar",
+        "props": { "percent": 0.75, "fill_color": "#d94a4a", "back_color": "#20232b", "thickness": 14, "corner_radius": 4 },
+        "slot": { "padding": [0, 4, 0, 0] }
+      }
+    ]
+  }
+}

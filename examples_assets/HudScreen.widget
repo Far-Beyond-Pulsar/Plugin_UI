@@ -1,0 +1,71 @@
+{
+  "format": 1,
+  "id": "6f1d2c3a-0a11-4b7e-9c10-00000000a006",
+  "design_size": [1920, 1080],
+  "description": "Example: an in-game HUD. Two instances of HealthBar (parameters overridden per instance) pinned to a screen corner with canvas anchors, plus a wrap box of ability icons pinned to the opposite corner.",
+  "next_node_id": 11,
+  "root": {
+    "id": 1,
+    "name": "Root",
+    "kind": "canvas",
+    "children": [
+      {
+        "id": 2,
+        "name": "PlayerHealth",
+        "kind": "widget",
+        "comment": "Bottom-left: anchors 0,1 pin the widget to the bottom-left corner of the screen; offsets are [x, y, width, height] from there, with a negative y to sit above the edge.",
+        "widget": "6f1d2c3a-0a11-4b7e-9c10-00000000a002",
+        "widget_name": "HealthBar",
+        "overrides": { "1": "HEALTH", "2": 0.6 },
+        "slot": { "anchor_min": [0, 1], "anchor_max": [0, 1], "offsets": [32, -72, 320, 40], "alignment": [0, 1] }
+      },
+      {
+        "id": 3,
+        "name": "ShieldBar",
+        "kind": "widget",
+        "comment": "The same widget again with other values. Parameter 3 is the bar colour.",
+        "widget": "6f1d2c3a-0a11-4b7e-9c10-00000000a002",
+        "widget_name": "HealthBar",
+        "overrides": { "1": "SHIELD", "2": 1.0, "3": "#4a9eff" },
+        "slot": { "anchor_min": [0, 1], "anchor_max": [0, 1], "offsets": [32, -120, 320, 40], "alignment": [0, 1] }
+      },
+      {
+        "id": 4,
+        "name": "Abilities",
+        "kind": "wrap_box",
+        "comment": "A Wrap Box flows its children and starts a new line when the row is full.",
+        "props": { "orientation": "horizontal", "gap": [8, 8] },
+        "slot": { "anchor_min": [1, 1], "anchor_max": [1, 1], "offsets": [-32, -32, 232, 0], "alignment": [1, 1], "auto_size": true },
+        "children": [
+          {
+            "id": 5,
+            "name": "Ability1",
+            "kind": "size_box",
+            "props": { "width": 48, "height": 48 },
+            "children": [
+              { "id": 6, "name": "Icon1", "kind": "border", "props": { "background": "#2f6fe4", "corner_radius": [8, 8, 8, 8] } }
+            ]
+          },
+          {
+            "id": 7,
+            "name": "Ability2",
+            "kind": "size_box",
+            "props": { "width": 48, "height": 48 },
+            "children": [
+              { "id": 8, "name": "Icon2", "kind": "border", "props": { "background": "#e4a62f", "corner_radius": [8, 8, 8, 8] } }
+            ]
+          },
+          {
+            "id": 9,
+            "name": "Ability3",
+            "kind": "size_box",
+            "props": { "width": 48, "height": 48 },
+            "children": [
+              { "id": 10, "name": "Icon3", "kind": "border", "props": { "background": "#3fbf7a", "corner_radius": [8, 8, 8, 8] } }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
