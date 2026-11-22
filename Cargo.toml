@@ -9,6 +9,9 @@ crate-type = ["cdylib", "rlib"]
 name = "ui_editor_plugin"
 
 [features]
+# The plugin as a library of its own, loaded by the editor from plugins/editor:
+# cargo build -p <this package> --release --features dll
+dll = ["plugin_editor_api/editor", "plugin_editor_api/shared-dylibs"]
 # Statically linked hosts use the Rust API and must not emit the
 # process-global dynamic loader symbols shared by every plugin.
 builtin = []
