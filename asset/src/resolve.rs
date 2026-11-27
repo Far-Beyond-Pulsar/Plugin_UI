@@ -75,6 +75,11 @@ pub struct ResolvedNode {
     pub local: Affine,
     /// Parent space to widget space, set after layout.
     pub world: Affine,
+    /// The properties of this node that a parameter of the *edited* widget
+    /// drives, directly or through an instance's pass-through binding: setting
+    /// that parameter changes exactly these, so a retained tree is updated in
+    /// place instead of being resolved again.
+    pub drivers: Vec<(String, ParamId)>,
 }
 
 impl ResolvedNode {
@@ -102,10 +107,53 @@ impl ResolvedNode {
 
 type Env = HashMap<ParamId, Json>;
 
+/// Which parameter of the edited widget each parameter of the widget being
+/// expanded follows (itself at the top level).
+type Sources = HashMap<ParamId, ParamId>;
+
+/// For the nodes of one widget: the properties edited-widget parameters drive.
+type Drivers = HashMap<NodeId, Vec<(String, ParamId)>>;
+
+fn drivers_of(widget: &WidgetAsset, sources: &Sources) -> Drivers {
+    let mut out = Drivers::new();
+    for param in &widget.parameters {
+        let Some(source) = sources.get(&param.id) else {
+            continue;
+        };
+        for target in &param.targets {
+            out.entry(target.node)
+                .or_default()
+                .push((target.prop.clone(), *source));
+        }
+    }
+    out
+}
+
+/// Set `prop` of a retained node to a new parameter value. `false` when the
+/// value is not valid for the property (which then keeps what it shows) or is
+/// what the property holds already.
+pub fn drive(node: &mut ResolvedNode, prop: &str, value: &Json) -> bool {
+    let Some(valid) = node
+        .kind
+        .info()
+        .def(prop)
+        .and_then(|def| def.ty.coerce(value))
+    else {
+        return false;
+    };
+    if node.props.0.get(prop) == Some(&valid) {
+        return false;
+    }
+    node.props.0.insert(prop.to_string(), valid);
+    true
+}
+
 struct Ctx<'a> {
     lib: &'a dyn WidgetSource,
     /// Widgets being expanded, outermost first.
     stack: Vec<WidgetId>,
+    /// The followed parameters of each instance being expanded, innermost last.
+    sources: Vec<Sources>,
 }
 
 /// The values every parameter of `widget` has when nothing sets them.
@@ -127,17 +175,17 @@ pub fn resolve_with(widget: &WidgetAsset, env: &Env, lib: &dyn WidgetSource) -> 
     let mut ctx = Ctx {
         lib,
         stack: vec![widget.id.clone()],
+        sources: vec![widget.parameters.iter().map(|p| (p.id, p.id)).collect()],
     };
     let mut tree = widget.root.clone();
     apply_parameters(widget, env, &mut tree);
-    expand(
-        &tree,
-        widget,
-        env,
-        &mut ctx,
-        SlotKind::None,
-        &Frame::top(widget.root.id),
-    )
+    let frame = Frame {
+        owner: None,
+        prefix: Vec::new(),
+        fills: HashMap::new(),
+        drivers: drivers_of(widget, &ctx.sources[0]),
+    };
+    expand(&tree, widget, env, &mut ctx, SlotKind::None, &frame)
 }
 
 fn apply_parameters(widget: &WidgetAsset, env: &Env, tree: &mut crate::model::Node) {
@@ -166,16 +214,8 @@ struct Frame {
     prefix: Vec<NodeId>,
     /// Slot content supplied by the instance one level up, by slot name.
     fills: HashMap<String, Vec<ResolvedNode>>,
-}
-
-impl Frame {
-    fn top(_root: NodeId) -> Self {
-        Frame {
-            owner: None,
-            prefix: Vec::new(),
-            fills: HashMap::new(),
-        }
-    }
+    /// The driven properties of the widget these nodes are from.
+    drivers: Drivers,
 }
 
 fn expand(
@@ -206,6 +246,7 @@ fn expand(
         rect: Rect::default(),
         local: Affine::IDENTITY,
         world: Affine::IDENTITY,
+        drivers: frame.drivers.get(&node.id).cloned().unwrap_or_default(),
     };
 
     match node.kind {
@@ -223,6 +264,7 @@ fn expand(
                 owner: frame.owner,
                 prefix: key,
                 fills: frame.fills.clone(),
+                drivers: frame.drivers.clone(),
             };
             out.children = node
                 .children
@@ -295,6 +337,7 @@ fn expand_instance(
         owner: frame.owner,
         prefix: key.to_vec(),
         fills: frame.fills.clone(),
+        drivers: frame.drivers.clone(),
     };
     let mut fills: HashMap<String, Vec<ResolvedNode>> = HashMap::new();
     for child in &node.children {
@@ -309,16 +352,32 @@ fn expand_instance(
         fills.entry(slot.clone()).or_default().push(resolved);
     }
 
+    // A parameter of the target follows an edited-widget parameter when the
+    // instance passes one through to it.
+    let mut inner_sources = Sources::new();
+    for (inner_param, arg) in &instance.overrides {
+        let Arg::Bind(outer) = arg else {
+            continue;
+        };
+        if let Some(source) = ctx.sources.last().and_then(|s| s.get(outer)) {
+            inner_sources.insert(*inner_param, *source);
+        }
+    }
+
     let mut tree = target.root.clone();
     apply_parameters(&target, &inner_env, &mut tree);
+    let drivers = drivers_of(&target, &inner_sources);
+    ctx.sources.push(inner_sources);
     ctx.stack.push(target.id.clone());
     let inner = Frame {
         owner: Some(frame.owner.unwrap_or(node.id)),
         prefix: key.to_vec(),
         fills,
+        drivers,
     };
     let root = expand(&tree, &target, &inner_env, ctx, SlotKind::Single, &inner);
     ctx.stack.pop();
+    ctx.sources.pop();
     out.children.push(root);
 }
 

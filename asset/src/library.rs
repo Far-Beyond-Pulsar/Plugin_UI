@@ -624,7 +624,19 @@ mod tests {
         let file = dir.join("ui/menus/Main.widget");
         assert_eq!(project_root(&file), dir);
         let loose = project("loose");
-        assert_eq!(project_root(&loose.join("A.widget")), loose);
+        // A file in no project belongs to its own directory, unless a
+        // directory above the machine's temp folder is itself marked (a
+        // developer's `.pulsar` in their profile): then that one is the
+        // nearest marked ancestor, which is what the function promises.
+        let marked_above = loose
+            .ancestors()
+            .find(|d| d.join("Pulsar.toml").is_file())
+            .or_else(|| loose.ancestors().find(|d| d.join(".pulsar").is_dir()))
+            .map(Path::to_path_buf);
+        assert_eq!(
+            project_root(&loose.join("A.widget")),
+            marked_above.unwrap_or_else(|| loose.clone())
+        );
         std::fs::remove_dir_all(&dir).ok();
         std::fs::remove_dir_all(&loose).ok();
     }

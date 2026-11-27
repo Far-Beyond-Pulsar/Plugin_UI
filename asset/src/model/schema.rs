@@ -293,6 +293,9 @@ pub const BOX_STRETCH: &[Opt] = &[
     ("user", "Custom scale"),
 ];
 pub const SIZE_RULE: &[Opt] = &[("auto", "Auto"), ("fill", "Fill")];
+pub const FONT: &[Opt] = &[("sans", "Sans (IBM Plex)"), ("mono", "Monospace (JetBrains)")];
+pub const GRADIENT_KIND: &[Opt] = &[("linear", "Linear"), ("radial", "Radial")];
+pub const BORDER_STYLE: &[Opt] = &[("solid", "Solid"), ("dashed", "Dashed")];
 
 // ── Kinds ──────────────────────────────────────────────────────────────────
 
@@ -760,7 +763,15 @@ pub const COMMON: &[PropDef] = &[
         PropType::Vec2,
         Def::V2(0.5, 0.5),
     )
-    .tip("Where scaling is centred, 0 to 1 across the widget"),
+    .tip("Where scaling and rotation are centred, 0 to 1 across the widget"),
+    p(
+        "angle",
+        "Rotation",
+        "Render transform",
+        float(-360.0, 360.0, 1.0),
+        Def::F(0.0),
+    )
+    .tip("Degrees clockwise about the pivot, when drawn; layout is unchanged"),
 ];
 
 const GRID: &[PropDef] = &[
@@ -872,6 +883,43 @@ const BORDER: &[PropDef] = &[
         Def::F(180.0),
     ),
     p(
+        "gradient_kind",
+        "Gradient kind",
+        "Brush",
+        PropType::Choice(GRADIENT_KIND),
+        Def::S("linear"),
+    ),
+    p(
+        "gradient_mid",
+        "Gradient middle",
+        "Brush",
+        PropType::Color,
+        Def::S("#00000000"),
+    )
+    .optional()
+    .tip("A colour between the background and the end colour"),
+    p(
+        "gradient_mid_at",
+        "Middle position",
+        "Brush",
+        UNIT,
+        Def::F(0.5),
+    ),
+    p(
+        "border_style",
+        "Outline style",
+        "Brush",
+        PropType::Choice(BORDER_STYLE),
+        Def::S("solid"),
+    ),
+    p(
+        "dash_length",
+        "Dash length",
+        "Brush",
+        float(1.0, 256.0, 1.0),
+        Def::F(8.0),
+    ),
+    p(
         "border_color",
         "Outline color",
         "Brush",
@@ -938,6 +986,34 @@ const TEXT: &[PropDef] = &[
         Def::S("regular"),
     ),
     p("italic", "Italic", "Font", PropType::Bool, Def::Bool(false)),
+    p(
+        "font",
+        "Family",
+        "Font",
+        PropType::Choice(FONT),
+        Def::S("sans"),
+    ),
+    p(
+        "letter_spacing",
+        "Letter spacing",
+        "Font",
+        float(-32.0, 128.0, 0.5),
+        Def::F(0.0),
+    ),
+    p(
+        "outline_color",
+        "Outline color",
+        "Outline",
+        PropType::Color,
+        Def::S("#00000000"),
+    ),
+    p(
+        "outline_width",
+        "Outline width",
+        "Outline",
+        float(0.0, 16.0, 0.5),
+        Def::F(0.0),
+    ),
     p("color", "Color", "Font", PropType::Color, Def::S("#ffffff")),
     p(
         "justify",
@@ -1000,6 +1076,14 @@ const IMAGE: &[PropDef] = &[
         Def::V2(64.0, 64.0),
     )
     .tip("Used for layout until the image is available"),
+    p(
+        "slice",
+        "Nine-slice margins",
+        "Content",
+        PropType::Insets,
+        Def::V4(0.0, 0.0, 0.0, 0.0),
+    )
+    .tip("Image pixels kept unstretched at each edge (left, top, right, bottom)"),
     p(
         "corner_radius",
         "Corner radius",

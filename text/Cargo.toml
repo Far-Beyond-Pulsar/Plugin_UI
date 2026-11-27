@@ -1,0 +1,18 @@
+[package]
+name = "widget_text"
+version = "0.1.0"
+edition = "2021"
+description = "UI (pulsar.ui): the one owner of runtime text. Embedded fonts, shaping and line breaking, and the bounded glyph atlas (MSDF and hinted coverage) that layout measures with and the UI passes draw from."
+
+[lib]
+name = "widget_text"
+
+[dependencies]
+widget_asset = { workspace = true }
+helio-ui-api = { workspace = true }
+cosmic-text = { workspace = true }
+ttf-parser = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

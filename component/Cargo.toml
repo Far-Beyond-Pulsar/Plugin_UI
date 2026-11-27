@@ -1,0 +1,64 @@
+[package]
+name = "widget_component"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "UI (pulsar.ui): the widget component (its parameters, script methods and events), the retained runtime widgets, the primitives they draw and pointer interaction."
+
+[lib]
+name = "widget_component"
+
+[features]
+# `#[derive(SceneStore)]` checks the deriving crate's own `gpu` feature.
+default = ["gpu"]
+gpu = []
+# The property editors (the asset picker; the parameter list).
+editor = ["dep:gpui-ce", "dep:ui_common", "dep:ui"]
+
+[dependencies]
+widget_asset = { workspace = true }
+widget_text = { workspace = true }
+helio-ui-api = { workspace = true }
+helio-pass-ui = { workspace = true }
+helio-feature-api = { workspace = true }
+helio-core = { workspace = true }
+helio = { workspace = true }
+engine_backend = { path = "../../../../crates/core/engine_backend", default-features = false, features = ["render"] }
+engine_class_derive = { workspace = true }
+engine_fs = { workspace = true }
+engine_state = { workspace = true }
+helio_component = { workspace = true }
+pulsar_events = { workspace = true }
+pulsar_findings = { workspace = true }
+pulsar_plugins = { workspace = true }
+pulsar_reflection = { workspace = true }
+ui_types_common = { workspace = true }
+pulsar_scenedb = { workspace = true }
+pulsar_world_registry = { workspace = true }
+plugin_editor_api = { workspace = true }
+profiling = { workspace = true }
+inventory = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+glam = { workspace = true }
+wgpu = { workspace = true }
+gpui-ce = { workspace = true, optional = true }
+ui_common = { workspace = true, optional = true }
+ui = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+pulsar_component_lifecycle = { workspace = true }
+
+[lints]
+workspace = true
+
+[[test]]
+name = "widgets"
+path = "tests/widgets.rs"
+
+[[test]]
+name = "measure"
+path = "tests/measure.rs"
+harness = false

@@ -1,0 +1,17 @@
+[package]
+name = "helio-ui-api"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "UI (pulsar.ui): the GPU row of one UI primitive and its WGSL, and the contract the UI passes read a frame's primitives through. No statics."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bytemuck = { workspace = true, features = ["derive"] }
+helio-core = { workspace = true }
+
+[dev-dependencies]
+naga = { version = "30", features = ["wgsl-in"] }
+
+[lints]
+workspace = true

@@ -63,6 +63,15 @@ fn background(fill: Fill) -> Background {
             linear_color_stop(hsla(from), 0.0),
             linear_color_stop(hsla(to), 1.0),
         ),
+        // GPUI draws two-stop linear gradients only: a radial or three-stop
+        // fill is approximated in the designer (the game draws it exactly).
+        Fill::Ramp {
+            angle, from, to, ..
+        } => linear_gradient(
+            angle,
+            linear_color_stop(hsla(from), 0.0),
+            linear_color_stop(hsla(to), 1.0),
+        ),
     }
 }
 
@@ -97,6 +106,9 @@ impl Painter<'_> {
                     window.with_content_mask(Some(mask), |window| self.run(cmds, at, window, cx));
                 }
                 Cmd::PopClip => return,
+                // GPUI cannot rotate quads and text: the designer shows them
+                // unrotated.
+                Cmd::PushRotation { .. } | Cmd::PopRotation | Cmd::ClipRadii(_) => {}
                 other => self.draw(other, window, cx),
             }
         }
@@ -105,7 +117,7 @@ impl Painter<'_> {
     fn draw(&self, cmd: &Cmd, window: &mut Window, cx: &mut App) {
         let k = self.surface.scale;
         match cmd {
-            Cmd::PushClip(_) | Cmd::PopClip => {}
+            Cmd::PushClip(_) | Cmd::PopClip | Cmd::PushRotation { .. } | Cmd::PopRotation | Cmd::ClipRadii(_) => {}
             Cmd::Shadow {
                 rect,
                 radii,
@@ -128,6 +140,7 @@ impl Painter<'_> {
                 radii,
                 fill,
                 border,
+                dash,
             } => {
                 let (width, color) = border.unwrap_or((0.0, Color::TRANSPARENT));
                 window.paint_quad(PaintQuad {
@@ -136,7 +149,11 @@ impl Painter<'_> {
                     background: background(*fill),
                     border_widths: Edges::all(px(width * k)),
                     border_color: hsla(color),
-                    border_style: BorderStyle::Solid,
+                    border_style: if *dash > 0.0 {
+                        BorderStyle::Dashed
+                    } else {
+                        BorderStyle::Solid
+                    },
                 });
             }
             Cmd::Text {
@@ -149,7 +166,16 @@ impl Painter<'_> {
                 justify,
                 wrap,
                 line_height,
+                font,
+                spacing: _,
+                outline: _,
             } => {
+                let mono = SharedString::from("JetBrains Mono");
+                let family = if font == "mono" {
+                    &mono
+                } else {
+                    &self.font_family
+                };
                 let align = match justify {
                     Justify::Left => TextAlign::Left,
                     Justify::Center => TextAlign::Center,
@@ -158,7 +184,7 @@ impl Painter<'_> {
                 paint_text(
                     window,
                     cx,
-                    &self.font_family,
+                    family,
                     self.surface.bounds(*rect),
                     text,
                     size * k,
@@ -177,6 +203,8 @@ impl Painter<'_> {
                 stretch,
                 radii,
                 natural,
+                slice: _,
+                slice_scale: _,
             } => self.draw_image(*rect, path, *tint, stretch, *radii, *natural, window, cx),
             Cmd::Check { rect, color } => {
                 let b = self.surface.bounds(*rect);

@@ -19,7 +19,8 @@ pub fn file_types() -> Vec<FileTypeDefinition> {
         default_content: serde_json::Value::Null,
         categories: vec!["UI".to_string()],
         creation_directory: Some("ui".to_string()),
-        cook: plugin_editor_api::file_types::copy_file_for_cook,
+        // Images and instanced widgets ship with the widget.
+        cook: widget_component::assets::cook,
     }]
 }
 

@@ -21,6 +21,15 @@ pub enum Fill {
         from: Color,
         to: Color,
     },
+    /// A radial gradient (centre to edge), or any gradient with a middle
+    /// stop at `mid.0` (0 to 1).
+    Ramp {
+        radial: bool,
+        angle: f32,
+        from: Color,
+        mid: Option<(f32, Color)>,
+        to: Color,
+    },
 }
 
 impl Fill {
@@ -28,6 +37,9 @@ impl Fill {
         match self {
             Fill::Solid(c) => c.a > 0.0,
             Fill::Gradient { from, to, .. } => from.a > 0.0 || to.a > 0.0,
+            Fill::Ramp { from, mid, to, .. } => {
+                from.a > 0.0 || to.a > 0.0 || mid.is_some_and(|(_, c)| c.a > 0.0)
+            }
         }
     }
 }
@@ -53,6 +65,8 @@ pub enum Cmd {
     /// Restrict drawing to `Rect` until the matching [`Cmd::PopClip`].
     PushClip(Rect),
     PopClip,
+    /// The corner radii of the clip the preceding [`Cmd::PushClip`] opened.
+    ClipRadii([f32; 4]),
     Shadow {
         rect: Rect,
         radii: [f32; 4],
@@ -64,6 +78,8 @@ pub enum Cmd {
         radii: [f32; 4],
         fill: Fill,
         border: Option<(f32, Color)>,
+        /// The outline's dash length; 0 draws it solid.
+        dash: f32,
     },
     Text {
         rect: Rect,
@@ -75,6 +91,11 @@ pub enum Cmd {
         justify: Justify,
         wrap: bool,
         line_height: f32,
+        /// `sans` or `mono`.
+        font: String,
+        /// Extra space after each letter, in widget units.
+        spacing: f32,
+        outline: Option<(f32, Color)>,
     },
     Image {
         rect: Rect,
@@ -83,7 +104,18 @@ pub enum Cmd {
         stretch: String,
         radii: [f32; 4],
         natural: Vec2,
+        /// Nine-slice margins in image pixels; zero stretches the whole image.
+        slice: [f32; 4],
+        /// Widget units per image pixel for the unstretched margins.
+        slice_scale: f32,
     },
+    /// Rotate what follows by `degrees` clockwise about `pivot` (composed
+    /// with the enclosing rotations) until the matching [`Cmd::PopRotation`].
+    PushRotation {
+        degrees: f32,
+        pivot: Vec2,
+    },
+    PopRotation,
     /// A tick mark filling `rect`.
     Check {
         rect: Rect,
@@ -153,8 +185,22 @@ impl Default for DisplayOptions {
 /// The drawing commands for a laid-out tree.
 pub fn build(root: &ResolvedNode, options: &DisplayOptions) -> Vec<Cmd> {
     let mut out = Vec::new();
-    paint(root, options, 1.0, &mut out);
+    paint(root, options, &|_| None, 1.0, &mut out);
     out
+}
+
+/// What state one node is in, when it differs from the options' state: how a
+/// running widget shows one button hovered and another disabled.
+pub type NodeState<'a> = &'a dyn Fn(&ResolvedNode) -> Option<PreviewState>;
+
+/// [`build`] with each node's own state, appended to `out`.
+pub fn build_into(
+    root: &ResolvedNode,
+    options: &DisplayOptions,
+    state: NodeState<'_>,
+    out: &mut Vec<Cmd>,
+) {
+    paint(root, options, state, 1.0, out);
 }
 
 fn radii(v: [f32; 4], k: f32) -> [f32; 4] {
@@ -166,30 +212,47 @@ pub fn screen_rect(node: &ResolvedNode) -> Rect {
     node.world.apply_rect(node.rect)
 }
 
-fn paint(node: &ResolvedNode, o: &DisplayOptions, parent_alpha: f32, out: &mut Vec<Cmd>) {
+fn paint(
+    node: &ResolvedNode,
+    o: &DisplayOptions,
+    state: NodeState<'_>,
+    parent_alpha: f32,
+    out: &mut Vec<Cmd>,
+) {
     if !is_drawn(node) {
         return;
     }
     let v = node.view();
     let mut alpha = parent_alpha * v.f32("opacity");
-    let enabled = v.bool("enabled") && o.state != PreviewState::Disabled || !node.own;
     if !v.bool("enabled") {
         alpha *= 0.45;
     }
-    let _ = enabled;
     if alpha <= 0.0 {
         return;
     }
     let rect = screen_rect(node);
     let k = node.world.uniform();
+    let angle = v.f32("angle");
+    if angle != 0.0 {
+        out.push(Cmd::PushRotation {
+            degrees: angle,
+            pivot: rotation_pivot(node),
+        });
+    }
     let clip = v.bool("clip") || node.kind == Kind::ScrollBox;
     if clip {
         out.push(Cmd::PushClip(rect));
+        if matches!(node.kind, Kind::Border | Kind::Button) {
+            let corners = radii(v.quad("corner_radius"), k);
+            if corners != [0.0; 4] {
+                out.push(Cmd::ClipRadii(corners));
+            }
+        }
     }
 
     match node.kind {
         Kind::Border => paint_border(node, rect, k, alpha, out),
-        Kind::Button => paint_button(node, rect, k, alpha, o, out),
+        Kind::Button => paint_button(node, rect, k, alpha, state(node).or(node.own.then_some(o.state)), out),
         Kind::Text => paint_text(node, rect, k, alpha, out),
         Kind::Image => paint_image(node, rect, k, alpha, out),
         Kind::CheckBox => paint_check_box(node, rect, k, alpha, out),
@@ -219,7 +282,7 @@ fn paint(node: &ResolvedNode, o: &DisplayOptions, parent_alpha: f32, out: &mut V
     }
 
     for child in draw_order(node) {
-        paint(child, o, alpha, out);
+        paint(child, o, state, alpha, out);
     }
 
     if node.kind == Kind::ScrollBox {
@@ -228,6 +291,16 @@ fn paint(node: &ResolvedNode, o: &DisplayOptions, parent_alpha: f32, out: &mut V
     if clip {
         out.push(Cmd::PopClip);
     }
+    if angle != 0.0 {
+        out.push(Cmd::PopRotation);
+    }
+}
+
+/// The point a node's rotation turns about, in widget space.
+pub fn rotation_pivot(node: &ResolvedNode) -> Vec2 {
+    let rect = screen_rect(node);
+    let pivot = node.view().vec2("pivot");
+    Vec2::new(rect.x + pivot.x * rect.w, rect.y + pivot.y * rect.h)
 }
 
 pub fn problem_label(status: &InstanceStatus) -> String {
@@ -262,10 +335,29 @@ fn paint_border(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mut V
     }
     let bg = v.color("background").faded(alpha);
     let fill = if v.is_set("gradient_to") {
-        Fill::Gradient {
-            angle: v.f32("gradient_angle"),
-            from: bg,
-            to: v.color("gradient_to").faded(alpha),
+        let angle = v.f32("gradient_angle");
+        let to = v.color("gradient_to").faded(alpha);
+        let radial = v.choice("gradient_kind") == "radial";
+        let mid = v.is_set("gradient_mid").then(|| {
+            (
+                v.f32("gradient_mid_at").clamp(0.0, 1.0),
+                v.color("gradient_mid").faded(alpha),
+            )
+        });
+        if radial || mid.is_some() {
+            Fill::Ramp {
+                radial,
+                angle,
+                from: bg,
+                mid,
+                to,
+            }
+        } else {
+            Fill::Gradient {
+                angle,
+                from: bg,
+                to,
+            }
         }
     } else {
         Fill::Solid(bg)
@@ -274,11 +366,17 @@ fn paint_border(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mut V
     let border_color = v.color("border_color").faded(alpha);
     let border = (width > 0.0 && border_color.a > 0.0).then_some((width, border_color));
     if fill.is_visible() || border.is_some() {
+        let dash = if v.choice("border_style") == "dashed" {
+            v.f32("dash_length") * k
+        } else {
+            0.0
+        };
         out.push(Cmd::Quad {
             rect,
             radii: r,
             fill,
             border,
+            dash,
         });
     }
 }
@@ -288,16 +386,14 @@ fn paint_button(
     rect: Rect,
     k: f32,
     alpha: f32,
-    o: &DisplayOptions,
+    shown: Option<PreviewState>,
     out: &mut Vec<Cmd>,
 ) {
     let v = node.view();
     let state = if !v.bool("enabled") {
         PreviewState::Disabled
-    } else if node.own {
-        o.state
     } else {
-        PreviewState::Normal
+        shown.unwrap_or_default()
     };
     let color = match state {
         PreviewState::Normal => v.color("normal_color"),
@@ -313,6 +409,7 @@ fn paint_button(
         radii: radii(v.quad("corner_radius"), k),
         fill: Fill::Solid(color),
         border: (width > 0.0 && border_color.a > 0.0).then_some((width, border_color)),
+        dash: 0.0,
     });
 }
 
@@ -327,7 +424,14 @@ fn paint_text(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mut Vec
         "right" => Justify::Right,
         _ => Justify::Left,
     };
-    let cmd = |rect: Rect, color: Color| Cmd::Text {
+    let outline_color = v.color("outline_color").faded(alpha);
+    let outline_width = v.f32("outline_width") * k;
+    let outline =
+        (outline_width > 0.0 && outline_color.a > 0.0).then_some((outline_width, outline_color));
+    let cmd = |rect: Rect, color: Color, outline: Option<(f32, Color)>| Cmd::Text {
+        font: v.choice("font"),
+        spacing: v.f32("letter_spacing") * k,
+        outline,
         rect,
         text: text.clone(),
         size: v.f32("font_size") * k,
@@ -340,9 +444,9 @@ fn paint_text(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mut Vec
     };
     let shadow = v.color("shadow_color").faded(alpha);
     if shadow.a > 0.0 {
-        out.push(cmd(rect.translate(v.vec2("shadow_offset") * k), shadow));
+        out.push(cmd(rect.translate(v.vec2("shadow_offset") * k), shadow, None));
     }
-    out.push(cmd(rect, v.color("color").faded(alpha)));
+    out.push(cmd(rect, v.color("color").faded(alpha), outline));
 }
 
 /// Where an image of `natural` size goes in `rect` for a stretch mode.
@@ -375,6 +479,8 @@ fn paint_image(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mut Ve
         stretch: v.choice("stretch"),
         radii: radii(v.quad("corner_radius"), k),
         natural: v.vec2("image_size"),
+        slice: v.quad("slice"),
+        slice_scale: k,
     });
 }
 
@@ -400,6 +506,7 @@ fn paint_check_box(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mu
                 Color::WHITE.with_alpha(0.22 * alpha)
             },
         )),
+        dash: 0.0,
     });
     if checked {
         out.push(Cmd::Check {
@@ -423,6 +530,9 @@ fn paint_check_box(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mu
         justify: Justify::Left,
         wrap: false,
         line_height: 1.25,
+        font: "sans".into(),
+        spacing: 0.0,
+        outline: None,
     });
 }
 
@@ -471,12 +581,14 @@ fn paint_slider(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mut V
         radii: r,
         fill: Fill::Solid(v.color("track_color").faded(alpha)),
         border: None,
+        dash: 0.0,
     });
     out.push(Cmd::Quad {
         rect: fill,
         radii: r,
         fill: Fill::Solid(v.color("fill_color").faded(alpha)),
         border: None,
+        dash: 0.0,
     });
     out.push(Cmd::Shadow {
         rect: Rect::new(
@@ -499,6 +611,7 @@ fn paint_slider(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mut V
         radii: [handle * 0.5; 4],
         fill: Fill::Solid(v.color("handle_color").faded(alpha)),
         border: None,
+        dash: 0.0,
     });
 }
 
@@ -524,6 +637,7 @@ fn paint_progress(
         radii: [radius; 4],
         fill: Fill::Solid(v.color("back_color").faded(alpha)),
         border: None,
+        dash: 0.0,
     });
 
     let (start, len) = if v.bool("indeterminate") {
@@ -550,6 +664,7 @@ fn paint_progress(
             radii: [radius; 4],
             fill: Fill::Solid(v.color("fill_color").faded(alpha)),
             border: None,
+            dash: 0.0,
         });
     }
 }
@@ -567,6 +682,7 @@ fn field_frame(
         radii: radii(v.quad("corner_radius"), k),
         fill: Fill::Solid(v.color("background").faded(alpha)),
         border: (width > 0.0).then(|| (width, v.color("border_color").faded(alpha))),
+        dash: 0.0,
     });
 }
 
@@ -599,6 +715,9 @@ fn paint_text_input(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &m
             justify: Justify::Left,
             wrap: v.bool("multiline"),
             line_height: 1.25,
+            font: "sans".into(),
+            spacing: 0.0,
+            outline: None,
         });
     }
 }
@@ -630,6 +749,9 @@ fn paint_combo(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mut Ve
             justify: Justify::Left,
             wrap: false,
             line_height: 1.25,
+            font: "sans".into(),
+            spacing: 0.0,
+            outline: None,
         });
     }
     out.push(Cmd::Chevron {
@@ -674,6 +796,7 @@ fn paint_scrollbar(node: &ResolvedNode, rect: Rect, k: f32, alpha: f32, out: &mu
         radii: [thickness * 0.5; 4],
         fill: Fill::Solid(color),
         border: None,
+        dash: 0.0,
     });
 }
 
@@ -702,6 +825,16 @@ pub fn hit_test<'a>(
         {
             return None;
         }
+        // A rotated node is hit where it is drawn: the point is turned back.
+        let angle = node.view().f32("angle");
+        let p = if angle != 0.0 {
+            let pivot = rotation_pivot(node);
+            let (sin, cos) = (-angle).to_radians().sin_cos();
+            let d = p - pivot;
+            pivot + Vec2::new(d.x * cos - d.y * sin, d.x * sin + d.y * cos)
+        } else {
+            p
+        };
         let rect = screen_rect(node);
         let clip = if node.view().bool("clip") || node.kind == Kind::ScrollBox {
             Some(clip.map_or(Some(rect), |c| c.intersection(&rect))?)

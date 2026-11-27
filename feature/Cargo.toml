@@ -1,0 +1,22 @@
+[package]
+name = "helio-pass-ui"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "UI (pulsar.ui): the screen and world widget passes, one instanced pipeline over analytic primitives, drawn over the final image at output resolution."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+helio-ui-api = { workspace = true }
+helio-core = { workspace = true }
+helio-feature-api = { workspace = true }
+helio-frame-api = { workspace = true }
+helio-mats = { workspace = true }
+wgpu = { workspace = true }
+bytemuck = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+naga = { version = "30", features = ["wgsl-in"] }
+
+[lints]
+workspace = true

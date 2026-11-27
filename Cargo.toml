@@ -1,8 +1,8 @@
 [package]
 name = "ui_editor_plugin"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
-description = "Widget assets and the WYSIWYG widget editor for the Pulsar editor"
+description = "UI (pulsar.ui): the plugin's root crate (runtime widgets always, the widget editor with `editor`)"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -11,20 +11,30 @@ name = "ui_editor_plugin"
 [features]
 # The plugin as a library of its own, loaded by the editor from plugins/editor:
 # cargo build -p <this package> --release --features dll
-dll = ["plugin_editor_api/editor", "plugin_editor_api/shared-dylibs"]
+dll = ["editor", "plugin_editor_api/shared-dylibs"]
 # Statically linked hosts use the Rust API and must not emit the
 # process-global dynamic loader symbols shared by every plugin.
 builtin = []
+# The widget editor (GPUI): the .widget file type and its editor. A game links
+# the crate without it.
+editor = ["dep:gpui-ce", "dep:ui", "dep:ui_common", "dep:plugin_manager", "plugin_editor_api/editor", "widget_component/editor"]
 
 [dependencies]
-# The plugin's descriptor and its editor provider's registration.
+widget_asset = { workspace = true }
+widget_component = { workspace = true }
+# The plugin gate and the builder its registrations go through.
 pulsar_plugins = { workspace = true }
-plugin_manager = { workspace = true }
-gpui-ce = { workspace = true }
-ui = { workspace = true }
-plugin_editor_api = { workspace = true, features = ["editor"] }
-ui_common = { workspace = true }
+pulsar_world_registry = { workspace = true }
+pulsar_scenedb = { workspace = true }
+engine_backend = { path = "../../../crates/core/engine_backend", default-features = false, features = ["render"] }
 engine_fs = { workspace = true }
+helio_component = { workspace = true }
+ui_types_common = { workspace = true }
+plugin_editor_api = { workspace = true }
+plugin_manager = { workspace = true, optional = true }
+gpui-ce = { workspace = true, optional = true }
+ui = { workspace = true, optional = true }
+ui_common = { workspace = true, optional = true }
 pulsar_reflection = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

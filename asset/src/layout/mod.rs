@@ -9,7 +9,7 @@
 //! Text size depends on the font, so the caller supplies [`TextMetrics`]: the
 //! editor measures with the real text system, tests with a fixed-width fake.
 
-pub(crate) mod panels;
+pub mod panels;
 
 use crate::model::geom::{Affine, Insets, Rect, Vec2};
 use crate::model::schema::Kind;
@@ -26,6 +26,10 @@ pub struct TextRequest {
     pub wrap_width: Option<f32>,
     /// Line height as a multiple of the size.
     pub line_height: f32,
+    /// `sans` or `mono`.
+    pub font: String,
+    /// Extra space after each letter.
+    pub spacing: f32,
 }
 
 pub trait TextMetrics {
@@ -159,6 +163,8 @@ pub fn measure(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) {
                 italic: false,
                 wrap_width: None,
                 line_height: 1.25,
+                font: "sans".into(),
+                spacing: 0.0,
             });
             let b = v.f32("box_size");
             Vec2::new(b + v.f32("spacing") + label.x, b.max(label.y))
@@ -202,6 +208,8 @@ pub fn measure(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) {
                         italic: false,
                         wrap_width: None,
                         line_height: 1.25,
+                        font: "sans".into(),
+                        spacing: 0.0,
                     })
                     .x
                 })
@@ -215,7 +223,9 @@ pub fn measure(node: &mut ResolvedNode, avail: Vec2, m: &dyn TextMetrics) {
     }
 }
 
-fn text_size(node: &ResolvedNode, avail_w: f32, m: &dyn TextMetrics) -> Vec2 {
+/// The size a text node wants in `avail_w` units of width: what changing a
+/// text re-measures to learn whether the layout around it can change.
+pub fn text_size(node: &ResolvedNode, avail_w: f32, m: &dyn TextMetrics) -> Vec2 {
     let v = node.view();
     let wrap = v.bool("wrap") && avail_w.is_finite() && avail_w > 0.0;
     m.measure(&TextRequest {
@@ -225,6 +235,8 @@ fn text_size(node: &ResolvedNode, avail_w: f32, m: &dyn TextMetrics) -> Vec2 {
         italic: v.bool("italic"),
         wrap_width: wrap.then_some(avail_w),
         line_height: v.f32("line_height"),
+        font: v.choice("font"),
+        spacing: v.f32("letter_spacing"),
     })
 }
 
