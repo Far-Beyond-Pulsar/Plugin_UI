@@ -13,9 +13,11 @@ use widget_component::WidgetComponent;
 const WIDGET_FILES: &str = "pulsar.ui.widget";
 
 /// Takes the pointer events and raises the clicks as `on_action`.
-const INTERACTION: System =
-    System::new("pulsar.ui.interaction", widget_component::interaction::system)
-        .after(&[COMPONENTS]);
+const INTERACTION: System = System::new(
+    "pulsar.ui.interaction",
+    widget_component::interaction::system,
+)
+.after(&[COMPONENTS]);
 
 fn is_widget_file(path: &std::path::Path) -> bool {
     path.extension()
@@ -28,6 +30,18 @@ pub(crate) fn build(p: &mut pulsar_plugins::PluginBuilder) {
     p.components().class::<WidgetComponent>(ClassSpec {
         systems: &[INTERACTION],
         ..ClassSpec::default()
+    });
+
+    // What a new component's texture choice starts as: the project's.
+    p.add(pulsar_settings::project::ProjectSettingsRegistration {
+        origin: p.origin(),
+        name: "ui.textures_settings",
+        register: widget_component::register_texture_settings,
+    });
+    p.add(helio_component::asset_component::NewComponentRegistration {
+        origin: p.origin(),
+        class_name: widget_component::WIDGET_CLASS_NAME,
+        seed: widget_component::seed_new,
     });
 
     // ── Rendering ───────────────────────────────────────────────────────────
@@ -79,6 +93,7 @@ pub(crate) fn build(p: &mut pulsar_plugins::PluginBuilder) {
         kind: widget_component::assets::WIDGET_ASSET_KIND,
         load: widget_component::assets::load,
         size: None,
+        compose: None,
     });
     // A saved widget reloads in every scene showing it.
     p.add(engine_fs::watchers::AssetChangeKind {

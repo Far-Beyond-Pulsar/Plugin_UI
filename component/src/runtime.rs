@@ -34,6 +34,14 @@ use crate::assets::LoadedWidget;
 use crate::component::{BoundImages, WidgetComponent, WidgetParams};
 use crate::paint::{self, Mapping};
 
+/// A widget's loaded images, with how it wants them held.
+fn images_of(component: &WidgetComponent) -> BoundImages {
+    BoundImages {
+        options: component.texture_options(),
+        ..component.images.clone()
+    }
+}
+
 /// Screen views kept (split viewports have one each).
 const MAX_VIEWS: usize = 8;
 
@@ -339,8 +347,8 @@ impl WidgetScene {
                 Some((transforms, parents)) => {
                     let a = changes(world, transforms, &mut cursors.scratch)
                         .is_none_or(|c| !c.is_empty());
-                    let b = changes(world, parents, &mut cursors.scratch)
-                        .is_none_or(|c| !c.is_empty());
+                    let b =
+                        changes(world, parents, &mut cursors.scratch).is_none_or(|c| !c.is_empty());
                     a || b
                 }
                 None => {
@@ -438,7 +446,7 @@ impl WidgetScene {
                 asset_path: path.to_string(),
                 widget,
                 parameters: component.parameters.clone(),
-                images: component.images.clone(),
+                images: images_of(component),
                 pose,
                 revision: key,
                 hovered: None,
@@ -473,8 +481,10 @@ impl WidgetScene {
             changed = true;
             check = true;
         }
-        if instance.images.version != component.images.version {
-            instance.images = component.images.clone();
+        if instance.images.version != component.images.version
+            || instance.images.options != component.texture_options()
+        {
+            instance.images = images_of(component);
             changed = true;
         }
         if check {
@@ -556,7 +566,15 @@ impl WidgetScene {
             if instance.placing.world_space != world || !instance.is_shown() {
                 continue;
             }
-            update_item(view, *entity, instance, size, evicted, images, &mut self.stats);
+            update_item(
+                view,
+                *entity,
+                instance,
+                size,
+                evicted,
+                images,
+                &mut self.stats,
+            );
             shown.push((instance.placing.z_order, instance.key, *entity));
         }
         view.items.retain(|entity, _| {
@@ -651,12 +669,7 @@ impl WidgetScene {
 }
 
 /// A world widget's placement row.
-pub fn placement_row(
-    placing: &Placing,
-    pose: &Pose,
-    design: Vec2,
-    origin: DVec3,
-) -> UiPlacement {
+pub fn placement_row(placing: &Placing, pose: &Pose, design: Vec2, origin: DVec3) -> UiPlacement {
     let centre = (pose.centre - origin).as_vec3();
     let per_unit = placing.world_width.max(0.0) * pose.scale / design.x.max(1.0);
     let mut flags = 0;
@@ -699,8 +712,7 @@ fn check_parameters(instance: &Instance) {
 }
 
 /// The scene texture slot and pixel size of a loaded image of a widget.
-pub type ImageSlots<'a> =
-    &'a dyn Fn(&BoundImages, &str) -> Option<crate::paint::Image>;
+pub type ImageSlots<'a> = &'a dyn Fn(&BoundImages, &str) -> Option<crate::paint::Image>;
 
 /// What a changed property needs.
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
@@ -834,7 +846,10 @@ fn update_item(
     let Some(item) = view.items.get_mut(&entity) else {
         return;
     };
-    if item.built == instance.revision && !evicted && dirty == Dirty::Nothing && item.mapping == mapping
+    if item.built == instance.revision
+        && !evicted
+        && dirty == Dirty::Nothing
+        && item.mapping == mapping
     {
         return;
     }

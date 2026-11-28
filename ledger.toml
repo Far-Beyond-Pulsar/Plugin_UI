@@ -1,0 +1,53 @@
+# The UI plugin's rows of the SceneDB closure ledger (Pulsar-Native#1035):
+# its classes, GPU schemas, buffers, pass crates and call sites. A plugin owns
+# the rows of what it ships (Pulsar-Native#1606); `cargo test -p scene_inventory`
+# in a Pulsar-Native checkout recomputes every fact column, checks the human
+# columns, and fails on a missing, stale or misplaced row. The columns are
+# described in Pulsar-Native's crates/core/scene_inventory/ledger.toml.
+
+# ── Exposed component classes ───────────────────────────────────
+
+[[class]]
+name = "WidgetComponent"
+category = "UI"
+world_registered = true
+own_gpu_columns = false
+owner = "widget_component::component"
+disposition = "no GPU rows: one widget a game shows, on screen or in the world, with the parameter values saved with the level. Each renderer's UI host part keeps a retained, laid-out tree and publishes the frame the UI passes draw"
+target_contract = "plugins/vendor/ui_editor/RUNTIME_DESIGN.md"
+test = "plugins/vendor/ui_editor/component/tests/widgets.rs"
+status = "verified"
+
+# ── Render pass crates ──────────────────────────────────────────
+
+[[pass]]
+crate = "helio-pass-ui"
+in_default_graph = false
+reads = []
+owner = "helio-pass-ui"
+disposition = "keep: the screen and world widget passes over the published UI frame, drawn over the final image at output resolution; reads no scene buffer"
+target_contract = "Phase 6; 03-gpu-reflection-and-rendering.md"
+test = "none: plugins/vendor/ui_editor/feature tests only shader validity and heap writes; no test asserts a rendered game widget frame"
+status = "unverified"
+
+# ── Lifecycle call sites ────────────────────────────────────────
+
+[[site]]
+pattern = "asset-binding"
+file = "plugins/vendor/ui_editor/component/src/component.rs"
+count = 2
+owner = "widget_component::component (register_bindings)"
+disposition = "keep: binds a loaded .widget asset, and each image the widget shows, into the WidgetComponents naming them"
+target_contract = "SceneDB#84; 07-assets-and-runtime-lifecycle.md"
+test = "plugins/vendor/ui_editor/component/tests/widgets.rs (a_widget_that_instances_another_loads_it_and_cooks_with_its_files)"
+status = "verified"
+
+[[site]]
+pattern = "change-cursor"
+file = "plugins/vendor/ui_editor/component/src/runtime.rs"
+count = 5
+owner = "widget_component::runtime (WidgetScene)"
+disposition = "keep: independent cursors over WidgetComponent and Visibility, and over Transform and Parent only while a widget stands in the world; an overflowed widget journal rescans, and a frame with no change reads no component"
+target_contract = "Phase 5; 04-state-notifications.md"
+test = "plugins/vendor/ui_editor/component/tests/widgets.rs (an_unchanged_widget_costs_nothing_and_a_change_costs_what_it_changes)"
+status = "verified"

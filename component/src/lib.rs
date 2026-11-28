@@ -25,7 +25,10 @@ pub mod paint;
 pub mod report;
 pub mod runtime;
 
-pub use component::{WidgetAction, WidgetAssetPath, WidgetComponent, WidgetParams};
+pub use component::{
+    register_texture_settings, seed_new, WidgetAction, WidgetAssetPath, WidgetComponent,
+    WidgetParams, WIDGET_CLASS_NAME,
+};
 
 use std::sync::{Arc, OnceLock};
 

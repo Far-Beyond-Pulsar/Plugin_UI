@@ -43,7 +43,11 @@ impl Deref for WidgetParams {
 
 fn params_to_json(params: &WidgetParams) -> ReflectResult<Json> {
     Ok(Json::Object(
-        params.0.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        params
+            .0
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
     ))
 }
 
@@ -117,6 +121,8 @@ pub struct BoundImages {
     pub images: BTreeMap<String, helio_component::texture_assets::BoundTexture>,
     /// Moves when an image is bound.
     pub version: u64,
+    /// How the widget wants them held (its component's choice).
+    pub options: helio_component::texture_options::TextureOptions,
 }
 
 #[engine_class(category = "UI", clone, debug, serialize, deserialize)]
@@ -126,6 +132,14 @@ pub struct BoundImages {
 #[category("Parameters", category_color = "#FBBF24")]
 #[serde(default)]
 pub struct WidgetComponent {
+    /// Hold the image compressed in video memory (see
+    /// `helio_component::texture_options`).
+    #[property(category = "World")]
+    pub texture_compressed: bool,
+    /// The largest side, in texels, the GPU holds the image at; 0 for no
+    /// limit of this component's own.
+    #[property(min = 0, max = 16384, category = "World")]
+    pub texture_max_size: i32,
     /// Whether the widget is shown and takes clicks. Off until something turns
     /// it on, so a widget never covers the editor's viewport: the Blueprint of
     /// the class that holds it enables it (Set Enabled) when it wants it shown.
@@ -177,9 +191,46 @@ pub struct WidgetComponent {
     pub images: BoundImages,
 }
 
+/// The project settings new components of this kind take their texture
+/// choice from.
+pub const TEXTURE_SETTINGS_OWNER: &str = "widget_textures";
+
+/// Registers [`TEXTURE_SETTINGS_OWNER`] (the plugin root submits it).
+pub fn register_texture_settings(cfg: &'static engine_state::settings::ConfigManager) {
+    helio_component::texture_options::register_settings(
+        cfg,
+        TEXTURE_SETTINGS_OWNER,
+        "Widget Textures",
+        "widgets",
+    );
+}
+
+/// Gives a new component the project's texture choice (the plugin root
+/// submits it as a `NewComponentRegistration`).
+pub fn seed_new(value: &mut dyn std::any::Any) {
+    if let Some(component) = value.downcast_mut::<WidgetComponent>() {
+        let options =
+            helio_component::texture_options::TextureOptions::from_project(TEXTURE_SETTINGS_OWNER);
+        component.texture_compressed = options.compressed;
+        component.texture_max_size = options.max_size as i32;
+    }
+}
+
+impl WidgetComponent {
+    /// How this component wants its images held.
+    pub fn texture_options(&self) -> helio_component::texture_options::TextureOptions {
+        helio_component::texture_options::TextureOptions::new(
+            self.texture_compressed,
+            self.texture_max_size,
+        )
+    }
+}
+
 impl Default for WidgetComponent {
     fn default() -> Self {
         Self {
+            texture_compressed: true,
+            texture_max_size: 0,
             enabled: false,
             widget_asset: Default::default(),
             z_order: 0,
@@ -477,9 +528,10 @@ pub trait WidgetEvents {
 /// Queue `on_action` of the widget on `instance`; it is delivered on the
 /// instance's and its object's channels at the next flush.
 pub fn queue_action(world: &mut World, instance: Entity, action: WidgetAction) {
-    let encoded = pulsar_world_registry::pulsar_script_vm::TypeRegistry::global().encode_event_value(
-        &pulsar_world_registry::pulsar_script_vm::Object::new("WidgetAction", action),
-    );
+    let encoded =
+        pulsar_world_registry::pulsar_script_vm::TypeRegistry::global().encode_event_value(
+            &pulsar_world_registry::pulsar_script_vm::Object::new("WidgetAction", action),
+        );
     match encoded {
         Ok(bytes) => pulsar_world_registry::queue_component_event(
             world,

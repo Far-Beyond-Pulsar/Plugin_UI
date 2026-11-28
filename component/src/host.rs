@@ -36,7 +36,7 @@ pub fn image_slot(
     let bound = images.images.get(path)?;
     let loaded = bound.image_for(helio_component::texture_assets::texture_asset_id_of(path))?;
     let slot = mirror.map_or(NO_TEXTURE, |mirror| {
-        helio_component::texture_assets::texture_slot(bound, path, mirror, "widget")
+        helio_component::texture_assets::texture_slot(bound, path, images.options, mirror, "widget")
     });
     Some(Image {
         slot,
@@ -57,8 +57,8 @@ impl UiHostPart {
             .is_some_and(|(checked, _)| checked.as_deref() == id);
         if !seen {
             let members = renderer.graph_members();
-            let lacking = !(members.contains(&SCREEN_PASS_NAME)
-                && members.contains(&WORLD_PASS_NAME));
+            let lacking =
+                !(members.contains(&SCREEN_PASS_NAME) && members.contains(&WORLD_PASS_NAME));
             self.checked = Some((id.map(str::to_string), lacking));
         }
         let lacking = self.checked.as_ref().is_some_and(|(_, lacking)| *lacking);

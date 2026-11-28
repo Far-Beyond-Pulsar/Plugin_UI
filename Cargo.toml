@@ -29,6 +29,7 @@ pulsar_scenedb = { workspace = true }
 engine_backend = { path = "../../../crates/core/engine_backend", default-features = false, features = ["render"] }
 engine_fs = { workspace = true }
 helio_component = { workspace = true }
+pulsar_settings = { workspace = true }
 ui_types_common = { workspace = true }
 plugin_editor_api = { workspace = true }
 plugin_manager = { workspace = true, optional = true }
